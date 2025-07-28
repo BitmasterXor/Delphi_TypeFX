@@ -3,8 +3,8 @@ object frmTypeFXConfig: TfrmTypeFXConfig
   Top = 0
   BorderStyle = bsDialog
   Caption = 'TypeFX Studio Settings'
-  ClientHeight = 580
-  ClientWidth = 520
+  ClientHeight = 750
+  ClientWidth = 600
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -18,14 +18,14 @@ object frmTypeFXConfig: TfrmTypeFXConfig
   object pnlMain: TPanel
     Left = 8
     Top = 8
-    Width = 504
-    Height = 532
+    Width = 584
+    Height = 700
     BevelOuter = bvNone
     TabOrder = 0
     object grpEffectStyle: TGroupBox
       Left = 0
       Top = 0
-      Width = 504
+      Width = 584
       Height = 100
       Caption = ' Effect Style Selection '
       TabOrder = 0
@@ -62,7 +62,7 @@ object frmTypeFXConfig: TfrmTypeFXConfig
     object grpTriggerSettings: TGroupBox
       Left = 0
       Top = 110
-      Width = 504
+      Width = 584
       Height = 120
       Caption = ' Trigger Settings '
       TabOrder = 1
@@ -102,7 +102,7 @@ object frmTypeFXConfig: TfrmTypeFXConfig
     object grpAnimationSettings: TGroupBox
       Left = 0
       Top = 240
-      Width = 504
+      Width = 584
       Height = 180
       Caption = ' Animation Settings '
       TabOrder = 2
@@ -238,13 +238,155 @@ object frmTypeFXConfig: TfrmTypeFXConfig
         OnChange = trkIntensityChange
       end
     end
+    object grpSoundSettings: TGroupBox
+      Left = 0
+      Top = 430
+      Width = 584
+      Height = 200
+      Caption = ' Sound Settings '
+      TabOrder = 3
+      object lblSoundVolume: TLabel
+        Left = 12
+        Top = 50
+        Width = 41
+        Height = 13
+        Caption = 'Volume:'
+      end
+      object lblVolumeValue: TLabel
+        Left = 200
+        Top = 50
+        Width = 22
+        Height = 13
+        Caption = '75%'
+        Font.Charset = DEFAULT_CHARSET
+        Font.Color = clBlue
+        Font.Height = -11
+        Font.Name = 'Segoe UI'
+        Font.Style = [fsBold]
+        ParentFont = False
+      end
+      object lblBasicKeySound: TLabel
+        Left = 12
+        Top = 100
+        Width = 86
+        Height = 13
+        Caption = 'Basic Key Sound:'
+      end
+      object lblEnterKeySound: TLabel
+        Left = 12
+        Top = 130
+        Width = 87
+        Height = 13
+        Caption = 'Enter Key Sound:'
+      end
+      object lblBackspaceSound: TLabel
+        Left = 12
+        Top = 160
+        Width = 93
+        Height = 13
+        Caption = 'Backspace Sound:'
+      end
+      object chkEnableSounds: TCheckBox
+        Left = 12
+        Top = 20
+        Width = 200
+        Height = 17
+        Caption = 'Enable sound effects for typing'
+        TabOrder = 0
+        OnClick = chkEnableSoundsClick
+      end
+      object trkSoundVolume: TTrackBar
+        Left = 12
+        Top = 65
+        Width = 150
+        Height = 25
+        Position = 10
+        TabOrder = 1
+        OnChange = trkSoundVolumeChange
+      end
+      object edtBasicKeySound: TEdit
+        Left = 115
+        Top = 97
+        Width = 300
+        Height = 21
+        TabOrder = 2
+      end
+      object btnBrowseBasicKey: TButton
+        Left = 420
+        Top = 95
+        Width = 60
+        Height = 25
+        Caption = 'Browse...'
+        TabOrder = 3
+        OnClick = btnBrowseBasicKeyClick
+      end
+      object btnTestBasicKey: TButton
+        Left = 485
+        Top = 95
+        Width = 40
+        Height = 25
+        Caption = 'Test'
+        TabOrder = 4
+        OnClick = btnTestBasicKeyClick
+      end
+      object edtEnterKeySound: TEdit
+        Left = 115
+        Top = 127
+        Width = 300
+        Height = 21
+        TabOrder = 5
+      end
+      object btnBrowseEnterKey: TButton
+        Left = 420
+        Top = 125
+        Width = 60
+        Height = 25
+        Caption = 'Browse...'
+        TabOrder = 6
+        OnClick = btnBrowseEnterKeyClick
+      end
+      object btnTestEnterKey: TButton
+        Left = 485
+        Top = 125
+        Width = 40
+        Height = 25
+        Caption = 'Test'
+        TabOrder = 7
+        OnClick = btnTestEnterKeyClick
+      end
+      object edtBackspaceSound: TEdit
+        Left = 115
+        Top = 157
+        Width = 300
+        Height = 21
+        TabOrder = 8
+      end
+      object btnBrowseBackspace: TButton
+        Left = 420
+        Top = 155
+        Width = 60
+        Height = 25
+        Caption = 'Browse...'
+        TabOrder = 9
+        OnClick = btnBrowseBackspaceClick
+      end
+      object btnTestBackspace: TButton
+        Left = 485
+        Top = 155
+        Width = 40
+        Height = 25
+        Caption = 'Test'
+        TabOrder = 10
+        OnClick = btnTestBackspaceClick
+      end
+    end
     object grpPreview: TGroupBox
-      Left = 320
+      Left = 390
       Top = 110
-      Width = 184
+      Width = 194
       Height = 310
       Caption = ' Animation Preview '
-      TabOrder = 3
+      TabOrder = 4
       object lblPreviewHint: TLabel
         Left = 12
         Top = 190
@@ -262,7 +404,7 @@ object frmTypeFXConfig: TfrmTypeFXConfig
       object pnlPreview: TPanel
         Left = 12
         Top = 20
-        Width = 160
+        Width = 170
         Height = 120
         BevelOuter = bvLowered
         Color = clBlack
@@ -271,7 +413,7 @@ object frmTypeFXConfig: TfrmTypeFXConfig
         object imgPreview: TImage
           Left = 1
           Top = 1
-          Width = 158
+          Width = 168
           Height = 118
           Align = alClient
           Center = True
@@ -281,7 +423,7 @@ object frmTypeFXConfig: TfrmTypeFXConfig
       object btnTestAnimation: TButton
         Left = 12
         Top = 150
-        Width = 160
+        Width = 170
         Height = 30
         Caption = 'Test Animation'
         TabOrder = 1
@@ -290,13 +432,13 @@ object frmTypeFXConfig: TfrmTypeFXConfig
     end
     object pnlButtons: TPanel
       Left = 0
-      Top = 480
-      Width = 504
+      Top = 648
+      Width = 584
       Height = 52
       BevelOuter = bvNone
-      TabOrder = 4
+      TabOrder = 5
       object btnOK: TButton
-        Left = 200
+        Left = 280
         Top = 10
         Width = 75
         Height = 30
@@ -307,7 +449,7 @@ object frmTypeFXConfig: TfrmTypeFXConfig
         OnClick = btnOKClick
       end
       object btnCancel: TButton
-        Left = 285
+        Left = 365
         Top = 10
         Width = 75
         Height = 30
@@ -318,7 +460,7 @@ object frmTypeFXConfig: TfrmTypeFXConfig
         OnClick = btnCancelClick
       end
       object btnReset: TButton
-        Left = 370
+        Left = 450
         Top = 10
         Width = 75
         Height = 30
@@ -336,5 +478,11 @@ object frmTypeFXConfig: TfrmTypeFXConfig
         OnClick = btnAboutClick
       end
     end
+  end
+  object dlgOpenSound: TOpenDialog
+    DefaultExt = 'wav'
+    Filter = 'WAV Audio Files (*.wav)|*.wav|All Files (*.*)|*.*'
+    Left = 544
+    Top = 8
   end
 end

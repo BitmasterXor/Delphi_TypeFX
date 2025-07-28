@@ -3,7 +3,7 @@ unit TypeFXAnimations;
 interface
 
 uses
-  Windows, SysUtils, Classes, Graphics, Types, Math;
+  Windows, SysUtils, Classes, Graphics, Types, Math, MMSystem;
 
 type
   // Animation types - EXPANDED with 10 new effects
@@ -59,7 +59,16 @@ type
     tfEveryLine
   );
 
-  // Main configuration record
+  // Sound settings for different key types
+  TSoundSettings = record
+    BasicKeySound: string;       // WAV file for normal key presses
+    EnterKeySound: string;       // WAV file for Enter/Return key
+    BackspaceSound: string;      // WAV file for Backspace key
+    EnableSounds: Boolean;       // Master sound enable/disable
+    SoundVolume: Integer;        // Volume level 0-100
+  end;
+
+  // Main configuration record - UPDATED with sound support
   TTypeFXConfig = record
     EffectStyle: TEffectStyle;
     TriggerFrequency: TTriggerFrequency;
@@ -68,6 +77,7 @@ type
     ShowOnDelete: Boolean;
     Intensity: Integer;          // 1-10 (affects size/opacity)
     RandomOffset: Boolean;       // Add random positioning
+    SoundSettings: TSoundSettings; // NEW: Sound configuration
   end;
 
   // Advanced particle structure for professional animations
@@ -178,6 +188,37 @@ type
     property AnimationType: TAnimationType read FAnimationType;
   end;
 
+
+
+// BULLETPROOF sound manager - fire and forget approach
+TSoundManager = class
+private
+  FMasterVolume: Integer;
+  FEnabled: Boolean;
+  // REMOVED: FLastSoundTime, FMinSoundInterval, FSoundChannels, FCurrentChannel, etc.
+
+  class var FInstance: TSoundManager;
+
+public
+  constructor Create;
+  destructor Destroy; override;
+
+  class function GetInstance: TSoundManager;
+  class procedure FreeInstance;
+
+  procedure PlaySound(const FileName: string; Volume: Integer = 100);
+  procedure PlayBasicKeySound(const Config: TTypeFXConfig);
+  procedure PlayEnterKeySound(const Config: TTypeFXConfig);
+  procedure PlayBackspaceSound(const Config: TTypeFXConfig);
+
+  procedure SetMasterVolume(Volume: Integer);
+  procedure SetEnabled(Enabled: Boolean);
+  procedure EmergencyShutdown;
+
+  property MasterVolume: Integer read FMasterVolume write SetMasterVolume;
+  property Enabled: Boolean read FEnabled write SetEnabled;
+end;
+
 // Helper functions
 function GetDefaultTypeFXConfig: TTypeFXConfig;
 function GetAnimationName(AType: TAnimationType): string;
@@ -200,6 +241,13 @@ begin
   Result.ShowOnDelete := False;
   Result.Intensity := 5;
   Result.RandomOffset := True;
+
+  // NEW: Default sound settings
+  Result.SoundSettings.BasicKeySound := '';
+  Result.SoundSettings.EnterKeySound := '';
+  Result.SoundSettings.BackspaceSound := '';
+  Result.SoundSettings.EnableSounds := False;
+  Result.SoundSettings.SoundVolume := 75;
 end;
 
 function GetAnimationName(AType: TAnimationType): string;
@@ -322,6 +370,100 @@ begin
   Result := Min + Random * (Max - Min);
 end;
 
+{ TSoundChannel - BULLETPROOF Implementation }
+
+
+
+{ TSoundManager - BULLETPROOF Implementation }
+
+constructor TSoundManager.Create;
+begin
+  inherited Create;
+  FMasterVolume := 100;
+  FEnabled := True;
+  // NO MORE CHANNELS, NO MORE VARIABLES, NO MORE BULLSHIT
+end;
+
+destructor TSoundManager.Destroy;
+begin
+  inherited Destroy;
+end;
+
+class function TSoundManager.GetInstance: TSoundManager;
+begin
+  if not Assigned(FInstance) then
+    FInstance := TSoundManager.Create;
+  Result := FInstance;
+end;
+
+class procedure TSoundManager.FreeInstance;
+begin
+  if Assigned(FInstance) then
+  begin
+    FInstance.Free;
+    FInstance := nil;
+  end;
+end;
+
+procedure TSoundManager.SetMasterVolume(Volume: Integer);
+begin
+  FMasterVolume := Max(0, Min(100, Volume));
+end;
+
+procedure TSoundManager.SetEnabled(Enabled: Boolean);
+begin
+  FEnabled := Enabled;
+end;
+
+procedure TSoundManager.EmergencyShutdown;
+begin
+  // Do nothing - let Windows handle it
+end;
+
+
+procedure TSoundManager.PlaySound(const FileName: string; Volume: Integer = 100);
+begin
+  if not FEnabled then Exit;
+  if not FileExists(FileName) then Exit;
+
+  // FUCK PlaySound - Use sndPlaySound which ACTUALLY supports overlapping
+  TThread.CreateAnonymousThread(
+    procedure
+    begin
+      try
+        // sndPlaySound with SND_NOSTOP actually works for overlapping
+        sndPlaySound(PChar(FileName), SND_FILENAME or SND_ASYNC);
+      except
+        // Fallback to MMSystem if sndPlaySound not available
+        try
+          MMSystem.PlaySound(PChar(FileName), 0, SND_FILENAME or SND_ASYNC or SND_NOSTOP);
+        except
+          // Ignore all errors
+        end;
+      end;
+    end
+  ).Start;
+end;
+
+
+procedure TSoundManager.PlayBasicKeySound(const Config: TTypeFXConfig);
+begin
+  if Config.SoundSettings.EnableSounds and (Trim(Config.SoundSettings.BasicKeySound) <> '') then
+    PlaySound(Config.SoundSettings.BasicKeySound, Config.SoundSettings.SoundVolume);
+end;
+
+procedure TSoundManager.PlayEnterKeySound(const Config: TTypeFXConfig);
+begin
+  if Config.SoundSettings.EnableSounds and (Trim(Config.SoundSettings.EnterKeySound) <> '') then
+    PlaySound(Config.SoundSettings.EnterKeySound, Config.SoundSettings.SoundVolume);
+end;
+
+procedure TSoundManager.PlayBackspaceSound(const Config: TTypeFXConfig);
+begin
+  if Config.SoundSettings.EnableSounds and (Trim(Config.SoundSettings.BackspaceSound) <> '') then
+    PlaySound(Config.SoundSettings.BackspaceSound, Config.SoundSettings.SoundVolume);
+end;
+
 { TParticleSystem }
 
 constructor TParticleSystem.Create(AAnimationType: TAnimationType; AIntensity: Integer; ADuration: Integer);
@@ -332,13 +474,10 @@ begin
   FDuration := ADuration;
   FStartTime := GetTickCount;
 
-  // Use same small particle count for ALL effects (like fire)
-  FMaxParticles := 12 + (FIntensity * 3); // Same as fire: 15-42 particles max
-
+  FMaxParticles := 12 + (FIntensity * 3);
   SetLength(FParticles, FMaxParticles);
   FParticleCount := FMaxParticles;
 
-  // Initialize particles based on animation type
   case FAnimationType of
     atFire: InitializeFireParticles;
     atLightning: InitializeLightningParticles;
@@ -347,7 +486,6 @@ begin
     atSparks: InitializeSparksParticles;
     atMatrix: InitializeMatrixParticles;
     atRainbow: InitializeRainbowParticles;
-    // NEW ANIMATIONS
     atIce: InitializeIceParticles;
     atFlame: InitializeFlameParticles;
     atStars: InitializeStarsParticles;
@@ -401,7 +539,6 @@ begin
   Canvas.Brush.Style := bsSolid;
   Canvas.Pen.Style := psClear;
 
-  // Draw multiple layers for glow effect
   for i := 3 downto 1 do
   begin
     GlowSize := Size * i;
@@ -410,14 +547,12 @@ begin
     Canvas.Ellipse(X - GlowSize, Y - GlowSize, X + GlowSize, Y + GlowSize);
   end;
 
-  // Draw core
   Canvas.Brush.Color := Color;
   Canvas.Ellipse(X - Size, Y - Size, X + Size, Y + Size);
 end;
 
-// ORIGINAL PARTICLE INITIALIZATIONS (unchanged)
+// PARTICLE INITIALIZATIONS
 
-// PERFECT Fire Particles (keep exactly as is!)
 procedure TParticleSystem.InitializeFireParticles;
 var
   i: Integer;
@@ -425,51 +560,46 @@ var
 begin
   for i := 0 to FParticleCount - 1 do
   begin
-    Angle := RandomFloat(-PI/4, PI/4); // Upward cone for realistic flame
-    Speed := RandomFloat(20, 50);       // Enhanced speed for visibility
+    Angle := RandomFloat(-PI/4, PI/4);
+    Speed := RandomFloat(20, 50);
 
-    FParticles[i].X := RandomFloat(-8, 8);   // Better spread
-    FParticles[i].Y := RandomFloat(0, 12);   // Starting area
+    FParticles[i].X := RandomFloat(-8, 8);
+    FParticles[i].Y := RandomFloat(0, 12);
     FParticles[i].VelX := Sin(Angle) * Speed;
     FParticles[i].VelY := -Cos(Angle) * Speed;
-    FParticles[i].AccX := RandomFloat(-15, 15); // Enhanced wind effect
-    FParticles[i].AccY := -30; // Strong buoyancy
+    FParticles[i].AccX := RandomFloat(-15, 15);
+    FParticles[i].AccY := -30;
     FParticles[i].Life := 1.0;
-    FParticles[i].MaxLife := RandomFloat(0.8, 1.4); // Longer duration
-    FParticles[i].Size := RandomFloat(3, 8) * (FIntensity / 5.0); // Larger particles
+    FParticles[i].MaxLife := RandomFloat(0.8, 1.4);
+    FParticles[i].Size := RandomFloat(3, 8) * (FIntensity / 5.0);
     FParticles[i].InitialSize := FParticles[i].Size;
     FParticles[i].Alpha := 1.0;
     FParticles[i].Angle := RandomFloat(0, 2 * PI);
     FParticles[i].AngularVel := RandomFloat(-6, 6);
     FParticles[i].Phase := RandomFloat(0, 2 * PI);
-
-    // Start white-hot
     FParticles[i].Color := RGB(255, 255, 255);
   end;
 end;
 
-// Lightning - simplified like fire
 procedure TParticleSystem.InitializeLightningParticles;
 var
   i: Integer;
 begin
   for i := 0 to FParticleCount - 1 do
   begin
-    // Small compact area like fire
     FParticles[i].X := RandomFloat(-8, 8);
     FParticles[i].Y := RandomFloat(-8, 8);
     FParticles[i].VelX := 0;
     FParticles[i].VelY := 0;
     FParticles[i].Life := 1.0;
     FParticles[i].MaxLife := RandomFloat(0.4, 0.8);
-    FParticles[i].Size := RandomFloat(2, 5) * (FIntensity / 5.0); // Same size as fire
+    FParticles[i].Size := RandomFloat(2, 5) * (FIntensity / 5.0);
     FParticles[i].Alpha := 1.0;
     FParticles[i].Color := RGB(220 + Random(36), 220 + Random(36), 255);
     FParticles[i].Phase := RandomFloat(0, 2 * PI);
   end;
 end;
 
-// Magic - simplified like fire
 procedure TParticleSystem.InitializeMagicParticles;
 var
   i: Integer;
@@ -478,7 +608,7 @@ begin
   for i := 0 to FParticleCount - 1 do
   begin
     Angle := (i / FParticleCount) * 2 * PI + RandomFloat(-0.2, 0.2);
-    Radius := RandomFloat(6, 12); // Much smaller radius like fire size
+    Radius := RandomFloat(6, 12);
 
     FParticles[i].X := Cos(Angle) * Radius;
     FParticles[i].Y := Sin(Angle) * Radius;
@@ -486,20 +616,17 @@ begin
     FParticles[i].VelY := 0;
     FParticles[i].Life := 1.0;
     FParticles[i].MaxLife := RandomFloat(0.8, 1.4);
-    FParticles[i].Size := RandomFloat(2, 5) * (FIntensity / 5.0); // Same size as fire
+    FParticles[i].Size := RandomFloat(2, 5) * (FIntensity / 5.0);
     FParticles[i].InitialSize := FParticles[i].Size;
     FParticles[i].Alpha := 1.0;
     FParticles[i].Angle := Angle;
     FParticles[i].AngularVel := RandomFloat(3, 6);
     FParticles[i].Phase := RandomFloat(0, 2 * PI);
     FParticles[i].Data1 := Radius;
-
-    // Magical colors
     FParticles[i].Color := HSVtoRGB(Round(RandomFloat(240, 330)), 255, 255);
   end;
 end;
 
-// Explosion - simplified like fire
 procedure TParticleSystem.InitializeExplosionParticles;
 var
   i: Integer;
@@ -508,21 +635,20 @@ begin
   for i := 0 to FParticleCount - 1 do
   begin
     Angle := RandomFloat(0, 2 * PI);
-    Speed := RandomFloat(20, 50); // Same speed range as fire
+    Speed := RandomFloat(20, 50);
 
-    FParticles[i].X := RandomFloat(-3, 3); // Start near center like fire
+    FParticles[i].X := RandomFloat(-3, 3);
     FParticles[i].Y := RandomFloat(-3, 3);
     FParticles[i].VelX := Cos(Angle) * Speed;
     FParticles[i].VelY := Sin(Angle) * Speed;
     FParticles[i].AccX := -FParticles[i].VelX * 1.2;
-    FParticles[i].AccY := -FParticles[i].VelY * 1.2 + 30; // Less gravity
+    FParticles[i].AccY := -FParticles[i].VelY * 1.2 + 30;
     FParticles[i].Life := 1.0;
     FParticles[i].MaxLife := RandomFloat(0.8, 1.4);
-    FParticles[i].Size := RandomFloat(3, 8) * (FIntensity / 5.0); // Same size as fire
+    FParticles[i].Size := RandomFloat(3, 8) * (FIntensity / 5.0);
     FParticles[i].InitialSize := FParticles[i].Size;
     FParticles[i].Alpha := 1.0;
 
-    // Explosion colors
     if i < FParticleCount div 4 then
       FParticles[i].Color := RGB(255, 255, 200)
     else if i < FParticleCount div 2 then
@@ -532,7 +658,6 @@ begin
   end;
 end;
 
-// Sparks - simplified like fire
 procedure TParticleSystem.InitializeSparksParticles;
 var
   i: Integer;
@@ -541,7 +666,7 @@ begin
   for i := 0 to FParticleCount - 1 do
   begin
     Angle := (i / FParticleCount) * 2 * PI + RandomFloat(-0.3, 0.3);
-    Speed := RandomFloat(20, 40); // Similar to fire
+    Speed := RandomFloat(20, 40);
 
     FParticles[i].X := 0;
     FParticles[i].Y := 0;
@@ -551,35 +676,33 @@ begin
     FParticles[i].AccY := -FParticles[i].VelY * 2;
     FParticles[i].Life := 1.0;
     FParticles[i].MaxLife := RandomFloat(0.8, 1.2);
-    FParticles[i].Size := RandomFloat(2, 5) * (FIntensity / 5.0); // Same size as fire
+    FParticles[i].Size := RandomFloat(2, 5) * (FIntensity / 5.0);
     FParticles[i].Alpha := 1.0;
     FParticles[i].Color := RGB(255, 255, 150 + Random(106));
     FParticles[i].Phase := RandomFloat(0, 2 * PI);
   end;
 end;
 
-// Matrix - simplified like fire
 procedure TParticleSystem.InitializeMatrixParticles;
 var
   i: Integer;
 begin
   for i := 0 to FParticleCount - 1 do
   begin
-    FParticles[i].X := RandomFloat(-8, 8); // Same spread as fire
-    FParticles[i].Y := RandomFloat(-12, -8); // Start just above
+    FParticles[i].X := RandomFloat(-8, 8);
+    FParticles[i].Y := RandomFloat(-12, -8);
     FParticles[i].VelX := 0;
-    FParticles[i].VelY := RandomFloat(30, 50); // Similar speed to fire
+    FParticles[i].VelY := RandomFloat(30, 50);
     FParticles[i].Life := 1.0;
     FParticles[i].MaxLife := RandomFloat(0.8, 1.4);
-    FParticles[i].Size := RandomFloat(8, 12) * (FIntensity / 5.0); // Small text size
+    FParticles[i].Size := RandomFloat(8, 12) * (FIntensity / 5.0);
     FParticles[i].Alpha := 1.0;
     FParticles[i].Color := RGB(0, 255, 0);
-    FParticles[i].Data1 := Random(26); // Character index (A-Z)
-    FParticles[i].Data2 := Random(10); // Number index (0-9)
+    FParticles[i].Data1 := Random(26);
+    FParticles[i].Data2 := Random(10);
   end;
 end;
 
-// Rainbow - simplified like fire
 procedure TParticleSystem.InitializeRainbowParticles;
 var
   i: Integer;
@@ -589,13 +712,13 @@ begin
   begin
     Angle := (i / FParticleCount) * 2 * PI;
 
-    FParticles[i].X := Cos(Angle) * 8; // Small radius like fire
+    FParticles[i].X := Cos(Angle) * 8;
     FParticles[i].Y := Sin(Angle) * 8;
     FParticles[i].VelX := Cos(Angle + PI/2) * 20;
     FParticles[i].VelY := Sin(Angle + PI/2) * 20;
     FParticles[i].Life := 1.0;
     FParticles[i].MaxLife := RandomFloat(0.8, 1.4);
-    FParticles[i].Size := RandomFloat(3, 6) * (FIntensity / 5.0); // Same size as fire
+    FParticles[i].Size := RandomFloat(3, 6) * (FIntensity / 5.0);
     FParticles[i].InitialSize := FParticles[i].Size;
     FParticles[i].Alpha := 1.0;
     FParticles[i].Angle := Angle;
@@ -605,9 +728,6 @@ begin
   end;
 end;
 
-// NEW PARTICLE INITIALIZATIONS - All following the same compact size pattern
-
-// Ice Crystals - Falling with crystalline shimmer
 procedure TParticleSystem.InitializeIceParticles;
 var
   i: Integer;
@@ -615,15 +735,15 @@ var
 begin
   for i := 0 to FParticleCount - 1 do
   begin
-    Angle := RandomFloat(-PI/6, PI/6); // Slight angle for natural fall
+    Angle := RandomFloat(-PI/6, PI/6);
     Speed := RandomFloat(15, 35);
 
     FParticles[i].X := RandomFloat(-8, 8);
-    FParticles[i].Y := RandomFloat(-12, -8); // Start above
-    FParticles[i].VelX := Sin(Angle) * Speed * 0.3; // Gentle drift
-    FParticles[i].VelY := Cos(Angle) * Speed; // Downward
-    FParticles[i].AccX := RandomFloat(-8, 8); // Light air currents
-    FParticles[i].AccY := 15; // Light gravity
+    FParticles[i].Y := RandomFloat(-12, -8);
+    FParticles[i].VelX := Sin(Angle) * Speed * 0.3;
+    FParticles[i].VelY := Cos(Angle) * Speed;
+    FParticles[i].AccX := RandomFloat(-8, 8);
+    FParticles[i].AccY := 15;
     FParticles[i].Life := 1.0;
     FParticles[i].MaxLife := RandomFloat(1.0, 1.6);
     FParticles[i].Size := RandomFloat(2, 6) * (FIntensity / 5.0);
@@ -632,13 +752,10 @@ begin
     FParticles[i].Angle := RandomFloat(0, 2 * PI);
     FParticles[i].AngularVel := RandomFloat(-4, 4);
     FParticles[i].Phase := RandomFloat(0, 2 * PI);
-
-    // Ice blue colors
     FParticles[i].Color := RGB(200 + Random(56), 230 + Random(26), 255);
   end;
 end;
 
-// Blue Flame - Like fire but blue
 procedure TParticleSystem.InitializeFlameParticles;
 var
   i: Integer;
@@ -663,13 +780,10 @@ begin
     FParticles[i].Angle := RandomFloat(0, 2 * PI);
     FParticles[i].AngularVel := RandomFloat(-6, 6);
     FParticles[i].Phase := RandomFloat(0, 2 * PI);
-
-    // Blue flame colors
     FParticles[i].Color := RGB(100 + Random(56), 150 + Random(106), 255);
   end;
 end;
 
-// Star Burst - Twinkling stars radiating outward
 procedure TParticleSystem.InitializeStarsParticles;
 var
   i: Integer;
@@ -694,13 +808,10 @@ begin
     FParticles[i].Angle := Angle;
     FParticles[i].AngularVel := RandomFloat(-8, 8);
     FParticles[i].Phase := RandomFloat(0, 2 * PI);
-
-    // Bright star colors
     FParticles[i].Color := RGB(255, 255, 200 + Random(56));
   end;
 end;
 
-// Smoke Wisp - Gentle upward drift
 procedure TParticleSystem.InitializeSmokeParticles;
 var
   i: Integer;
@@ -716,7 +827,7 @@ begin
     FParticles[i].VelX := Sin(Angle) * Speed * 0.5;
     FParticles[i].VelY := -Cos(Angle) * Speed;
     FParticles[i].AccX := RandomFloat(-10, 10);
-    FParticles[i].AccY := -20; // Gentle rise
+    FParticles[i].AccY := -20;
     FParticles[i].Life := 1.0;
     FParticles[i].MaxLife := RandomFloat(1.2, 2.0);
     FParticles[i].Size := RandomFloat(4, 10) * (FIntensity / 5.0);
@@ -725,13 +836,10 @@ begin
     FParticles[i].Angle := RandomFloat(0, 2 * PI);
     FParticles[i].AngularVel := RandomFloat(-2, 2);
     FParticles[i].Phase := RandomFloat(0, 2 * PI);
-
-    // Smoke gray colors
     FParticles[i].Color := RGB(120 + Random(86), 120 + Random(86), 130 + Random(76));
   end;
 end;
 
-// Neon Pulse - Pulsing neon glow
 procedure TParticleSystem.InitializeNeonParticles;
 var
   i: Integer;
@@ -756,15 +864,13 @@ begin
     FParticles[i].Phase := RandomFloat(0, 2 * PI);
     FParticles[i].Data1 := Radius;
 
-    // Neon cyan/pink colors
     if i mod 2 = 0 then
-      FParticles[i].Color := RGB(0, 255, 255) // Cyan
+      FParticles[i].Color := RGB(0, 255, 255)
     else
-      FParticles[i].Color := RGB(255, 0, 255); // Magenta
+      FParticles[i].Color := RGB(255, 0, 255);
   end;
 end;
 
-// Plasma Energy - Purple energy swirl
 procedure TParticleSystem.InitializePlasmaParticles;
 var
   i: Integer;
@@ -779,7 +885,7 @@ begin
     FParticles[i].Y := RandomFloat(-4, 4);
     FParticles[i].VelX := Cos(Angle) * Speed;
     FParticles[i].VelY := Sin(Angle) * Speed;
-    FParticles[i].AccX := -FParticles[i].X * 15; // Pull toward center
+    FParticles[i].AccX := -FParticles[i].X * 15;
     FParticles[i].AccY := -FParticles[i].Y * 15;
     FParticles[i].Life := 1.0;
     FParticles[i].MaxLife := RandomFloat(0.6, 1.0);
@@ -789,13 +895,10 @@ begin
     FParticles[i].Angle := Angle;
     FParticles[i].AngularVel := RandomFloat(-10, 10);
     FParticles[i].Phase := RandomFloat(0, 2 * PI);
-
-    // Purple plasma colors
     FParticles[i].Color := RGB(128 + Random(128), 0, 200 + Random(56));
   end;
 end;
 
-// Wind Blown - Horizontal drift particles
 procedure TParticleSystem.InitializeWindParticles;
 var
   i: Integer;
@@ -805,11 +908,11 @@ begin
   begin
     Speed := RandomFloat(30, 60);
 
-    FParticles[i].X := RandomFloat(-12, -8); // Start from left
+    FParticles[i].X := RandomFloat(-12, -8);
     FParticles[i].Y := RandomFloat(-6, 6);
-    FParticles[i].VelX := Speed; // Strong horizontal movement
+    FParticles[i].VelX := Speed;
     FParticles[i].VelY := RandomFloat(-10, 10);
-    FParticles[i].AccX := -10; // Wind resistance
+    FParticles[i].AccX := -10;
     FParticles[i].AccY := RandomFloat(-5, 5);
     FParticles[i].Life := 1.0;
     FParticles[i].MaxLife := RandomFloat(0.8, 1.2);
@@ -819,13 +922,10 @@ begin
     FParticles[i].Angle := RandomFloat(0, 2 * PI);
     FParticles[i].AngularVel := RandomFloat(-8, 8);
     FParticles[i].Phase := RandomFloat(0, 2 * PI);
-
-    // Wind particle colors (light blue/white)
     FParticles[i].Color := RGB(220 + Random(36), 240 + Random(16), 255);
   end;
 end;
 
-// Gold Shower - Golden sparkles falling
 procedure TParticleSystem.InitializeGoldParticles;
 var
   i: Integer;
@@ -841,7 +941,7 @@ begin
     FParticles[i].VelX := Sin(Angle) * Speed * 0.4;
     FParticles[i].VelY := Cos(Angle) * Speed;
     FParticles[i].AccX := RandomFloat(-8, 8);
-    FParticles[i].AccY := 25; // Gravity
+    FParticles[i].AccY := 25;
     FParticles[i].Life := 1.0;
     FParticles[i].MaxLife := RandomFloat(1.0, 1.6);
     FParticles[i].Size := RandomFloat(2, 6) * (FIntensity / 5.0);
@@ -850,13 +950,10 @@ begin
     FParticles[i].Angle := RandomFloat(0, 2 * PI);
     FParticles[i].AngularVel := RandomFloat(-6, 6);
     FParticles[i].Phase := RandomFloat(0, 2 * PI);
-
-    // Golden colors
     FParticles[i].Color := RGB(255, 180 + Random(76), 0);
   end;
 end;
 
-// Laser Beams - Red laser lines
 procedure TParticleSystem.InitializeLaserParticles;
 var
   i: Integer;
@@ -881,14 +978,11 @@ begin
     FParticles[i].Angle := Angle;
     FParticles[i].AngularVel := 0;
     FParticles[i].Phase := RandomFloat(0, 2 * PI);
-    FParticles[i].Data1 := Speed; // Store speed for rendering
-
-    // Red laser colors
+    FParticles[i].Data1 := Speed;
     FParticles[i].Color := RGB(255, 0, 0);
   end;
 end;
 
-// Crystal Shards - Sharp crystal fragments
 procedure TParticleSystem.InitializeCrystalParticles;
 var
   i: Integer;
@@ -914,20 +1008,19 @@ begin
     FParticles[i].AngularVel := RandomFloat(-12, 12);
     FParticles[i].Phase := RandomFloat(0, 2 * PI);
 
-    // Crystal colors (prismatic)
     case i mod 7 of
-      0: FParticles[i].Color := RGB(255, 200, 200); // Light red
-      1: FParticles[i].Color := RGB(200, 255, 200); // Light green
-      2: FParticles[i].Color := RGB(200, 200, 255); // Light blue
-      3: FParticles[i].Color := RGB(255, 255, 200); // Light yellow
-      4: FParticles[i].Color := RGB(255, 200, 255); // Light magenta
-      5: FParticles[i].Color := RGB(200, 255, 255); // Light cyan
-      else FParticles[i].Color := RGB(255, 255, 255); // White
+      0: FParticles[i].Color := RGB(255, 200, 200);
+      1: FParticles[i].Color := RGB(200, 255, 200);
+      2: FParticles[i].Color := RGB(200, 200, 255);
+      3: FParticles[i].Color := RGB(255, 255, 200);
+      4: FParticles[i].Color := RGB(255, 200, 255);
+      5: FParticles[i].Color := RGB(200, 255, 255);
+      else FParticles[i].Color := RGB(255, 255, 255);
     end;
   end;
 end;
 
-// ORIGINAL UPDATE METHODS (unchanged)
+// UPDATE METHODS
 
 procedure TParticleSystem.UpdateFireParticles(DeltaTime: Double);
 var
@@ -938,40 +1031,35 @@ begin
   begin
     if FParticles[i].Life <= 0 then Continue;
 
-    // Enhanced physics
     FParticles[i].VelX := FParticles[i].VelX + FParticles[i].AccX * DeltaTime;
     FParticles[i].VelY := FParticles[i].VelY + FParticles[i].AccY * DeltaTime;
     FParticles[i].X := FParticles[i].X + FParticles[i].VelX * DeltaTime;
     FParticles[i].Y := FParticles[i].Y + FParticles[i].VelY * DeltaTime;
     FParticles[i].Angle := FParticles[i].Angle + FParticles[i].AngularVel * DeltaTime;
 
-    // Update life
     FParticles[i].Life := FParticles[i].Life - (DeltaTime / FParticles[i].MaxLife);
     LifeRatio := FParticles[i].Life;
 
-    // Enhanced size evolution
     if LifeRatio > 0.7 then
       FParticles[i].Size := FParticles[i].InitialSize * (1 + (1 - LifeRatio) * 0.8)
     else
       FParticles[i].Size := FParticles[i].InitialSize * LifeRatio * 1.8;
 
-    // Enhanced alpha
     FParticles[i].Alpha := SmoothStep(0, 0.4, LifeRatio);
 
-    // Enhanced temperature-based color transition
     Temp := LifeRatio;
     if Temp > 0.85 then
-      FParticles[i].Color := RGB(255, 255, 255) // White hot
+      FParticles[i].Color := RGB(255, 255, 255)
     else if Temp > 0.7 then
-      FParticles[i].Color := RGB(255, 255, Round(150 + 105 * (Temp - 0.7) * 6.67)) // Bright yellow
+      FParticles[i].Color := RGB(255, 255, Round(150 + 105 * (Temp - 0.7) * 6.67))
     else if Temp > 0.5 then
-      FParticles[i].Color := RGB(255, Round(180 + 75 * (Temp - 0.5) * 5), 0) // Orange
+      FParticles[i].Color := RGB(255, Round(180 + 75 * (Temp - 0.5) * 5), 0)
     else if Temp > 0.3 then
-      FParticles[i].Color := RGB(255, Round(80 + 100 * (Temp - 0.3) * 5), 0) // Red-orange
+      FParticles[i].Color := RGB(255, Round(80 + 100 * (Temp - 0.3) * 5), 0)
     else if Temp > 0.1 then
-      FParticles[i].Color := RGB(Round(200 + 55 * (Temp - 0.1) * 5), 0, 0) // Red
+      FParticles[i].Color := RGB(Round(200 + 55 * (Temp - 0.1) * 5), 0, 0)
     else
-      FParticles[i].Color := RGB(Round(100 + 100 * Temp * 10), 0, 0); // Dark red
+      FParticles[i].Color := RGB(Round(100 + 100 * Temp * 10), 0, 0);
   end;
 end;
 
@@ -987,7 +1075,6 @@ begin
     FParticles[i].Life := FParticles[i].Life - (DeltaTime / FParticles[i].MaxLife);
     LifeRatio := FParticles[i].Life;
 
-    // Simple flickering like fire
     FParticles[i].Alpha := 0.3 + 0.7 * Abs(Sin(GetTickCount * 0.08 + FParticles[i].Phase));
     FParticles[i].Size := FParticles[i].Size * (0.7 + 0.6 * Sin(GetTickCount * 0.05));
   end;
@@ -1005,18 +1092,15 @@ begin
     FParticles[i].Life := FParticles[i].Life - (DeltaTime / FParticles[i].MaxLife);
     LifeRatio := FParticles[i].Life;
 
-    // Simple orbiting motion
     FParticles[i].Angle := FParticles[i].Angle + FParticles[i].AngularVel * DeltaTime;
     Radius := FParticles[i].Data1 * LifeRatio;
 
     FParticles[i].X := Cos(FParticles[i].Angle) * Radius;
     FParticles[i].Y := Sin(FParticles[i].Angle) * Radius * 0.7;
 
-    // Simple size and alpha
     FParticles[i].Size := FParticles[i].InitialSize * LifeRatio;
     FParticles[i].Alpha := SmoothStep(0, 0.3, LifeRatio);
 
-    // Color cycling
     FParticles[i].Color := HSVtoRGB(
       Round(240 + 90 * Sin(GetTickCount * 0.004 + FParticles[i].Phase)),
       255,
@@ -1034,7 +1118,6 @@ begin
   begin
     if FParticles[i].Life <= 0 then Continue;
 
-    // Simple physics like fire
     FParticles[i].VelX := FParticles[i].VelX + FParticles[i].AccX * DeltaTime;
     FParticles[i].VelY := FParticles[i].VelY + FParticles[i].AccY * DeltaTime;
     FParticles[i].X := FParticles[i].X + FParticles[i].VelX * DeltaTime;
@@ -1043,7 +1126,6 @@ begin
     FParticles[i].Life := FParticles[i].Life - (DeltaTime / FParticles[i].MaxLife);
     LifeRatio := FParticles[i].Life;
 
-    // Simple size and alpha
     FParticles[i].Size := FParticles[i].InitialSize * LifeRatio;
     FParticles[i].Alpha := EaseOutCubic(LifeRatio);
   end;
@@ -1058,7 +1140,6 @@ begin
   begin
     if FParticles[i].Life <= 0 then Continue;
 
-    // Simple physics
     FParticles[i].VelX := FParticles[i].VelX + FParticles[i].AccX * DeltaTime;
     FParticles[i].VelY := FParticles[i].VelY + FParticles[i].AccY * DeltaTime;
     FParticles[i].X := FParticles[i].X + FParticles[i].VelX * DeltaTime;
@@ -1067,7 +1148,6 @@ begin
     FParticles[i].Life := FParticles[i].Life - (DeltaTime / FParticles[i].MaxLife);
     LifeRatio := FParticles[i].Life;
 
-    // Simple flickering alpha
     FParticles[i].Alpha := LifeRatio * (0.4 + 0.6 * Abs(Sin(GetTickCount * 0.08 + FParticles[i].Phase)));
   end;
 end;
@@ -1081,16 +1161,13 @@ begin
   begin
     if FParticles[i].Life <= 0 then Continue;
 
-    // Simple falling motion
     FParticles[i].Y := FParticles[i].Y + FParticles[i].VelY * DeltaTime;
 
     FParticles[i].Life := FParticles[i].Life - (DeltaTime / FParticles[i].MaxLife);
     LifeRatio := FParticles[i].Life;
 
-    // Simple alpha fading
     FParticles[i].Alpha := SmoothStep(0, 0.4, LifeRatio);
 
-    // Simple character changes
     if Random < 0.15 then
     begin
       FParticles[i].Data1 := Random(26);
@@ -1108,9 +1185,8 @@ begin
   begin
     if FParticles[i].Life <= 0 then Continue;
 
-    // Simple spiral motion
     FParticles[i].Angle := FParticles[i].Angle + FParticles[i].AngularVel * DeltaTime;
-    Radius := 8 + (1 - FParticles[i].Life) * 12; // Small spiral
+    Radius := 8 + (1 - FParticles[i].Life) * 12;
 
     FParticles[i].X := Cos(FParticles[i].Angle) * Radius;
     FParticles[i].Y := Sin(FParticles[i].Angle) * Radius * 0.8;
@@ -1118,11 +1194,9 @@ begin
     FParticles[i].Life := FParticles[i].Life - (DeltaTime / FParticles[i].MaxLife);
     LifeRatio := FParticles[i].Life;
 
-    // Simple size and alpha
     FParticles[i].Size := FParticles[i].InitialSize * LifeRatio;
     FParticles[i].Alpha := SmoothStep(0, 0.3, LifeRatio);
 
-    // Color cycling
     FParticles[i].Phase := FParticles[i].Phase + 180 * DeltaTime;
     if FParticles[i].Phase >= 360 then
       FParticles[i].Phase := FParticles[i].Phase - 360;
@@ -1130,8 +1204,6 @@ begin
     FParticles[i].Color := HSVtoRGB(Round(FParticles[i].Phase), 255, Round(220 + 35 * LifeRatio));
   end;
 end;
-
-// NEW UPDATE METHODS - Following same simple patterns
 
 procedure TParticleSystem.UpdateIceParticles(DeltaTime: Double);
 var
@@ -1142,7 +1214,6 @@ begin
   begin
     if FParticles[i].Life <= 0 then Continue;
 
-    // Simple physics like fire
     FParticles[i].VelX := FParticles[i].VelX + FParticles[i].AccX * DeltaTime;
     FParticles[i].VelY := FParticles[i].VelY + FParticles[i].AccY * DeltaTime;
     FParticles[i].X := FParticles[i].X + FParticles[i].VelX * DeltaTime;
@@ -1152,11 +1223,9 @@ begin
     FParticles[i].Life := FParticles[i].Life - (DeltaTime / FParticles[i].MaxLife);
     LifeRatio := FParticles[i].Life;
 
-    // Simple size and alpha
     FParticles[i].Size := FParticles[i].InitialSize * LifeRatio;
     FParticles[i].Alpha := SmoothStep(0, 0.4, LifeRatio);
 
-    // Simple shimmer effect
     FParticles[i].Alpha := FParticles[i].Alpha * (0.6 + 0.4 * Sin(GetTickCount * 0.01 + FParticles[i].Phase));
   end;
 end;
@@ -1170,7 +1239,6 @@ begin
   begin
     if FParticles[i].Life <= 0 then Continue;
 
-    // Same physics as fire
     FParticles[i].VelX := FParticles[i].VelX + FParticles[i].AccX * DeltaTime;
     FParticles[i].VelY := FParticles[i].VelY + FParticles[i].AccY * DeltaTime;
     FParticles[i].X := FParticles[i].X + FParticles[i].VelX * DeltaTime;
@@ -1180,7 +1248,6 @@ begin
     FParticles[i].Life := FParticles[i].Life - (DeltaTime / FParticles[i].MaxLife);
     LifeRatio := FParticles[i].Life;
 
-    // Same size evolution as fire
     if LifeRatio > 0.7 then
       FParticles[i].Size := FParticles[i].InitialSize * (1 + (1 - LifeRatio) * 0.8)
     else
@@ -1188,16 +1255,15 @@ begin
 
     FParticles[i].Alpha := SmoothStep(0, 0.4, LifeRatio);
 
-    // Blue flame color transition
     Temp := LifeRatio;
     if Temp > 0.8 then
-      FParticles[i].Color := RGB(200, 200, 255) // Light blue
+      FParticles[i].Color := RGB(200, 200, 255)
     else if Temp > 0.6 then
-      FParticles[i].Color := RGB(150, 180, 255) // Blue
+      FParticles[i].Color := RGB(150, 180, 255)
     else if Temp > 0.4 then
-      FParticles[i].Color := RGB(100, 150, 255) // Deep blue
+      FParticles[i].Color := RGB(100, 150, 255)
     else
-      FParticles[i].Color := RGB(50, 100, 255); // Dark blue
+      FParticles[i].Color := RGB(50, 100, 255);
   end;
 end;
 
@@ -1209,7 +1275,7 @@ begin
   for i := 0 to FParticleCount - 1 do
   begin
     if FParticles[i].Life <= 0 then Continue;
-  // Simple physics like explosion
+
     FParticles[i].VelX := FParticles[i].VelX + FParticles[i].AccX * DeltaTime;
     FParticles[i].VelY := FParticles[i].VelY + FParticles[i].AccY * DeltaTime;
     FParticles[i].X := FParticles[i].X + FParticles[i].VelX * DeltaTime;
@@ -1219,7 +1285,6 @@ begin
     FParticles[i].Life := FParticles[i].Life - (DeltaTime / FParticles[i].MaxLife);
     LifeRatio := FParticles[i].Life;
 
-    // Simple size and alpha with twinkling
     FParticles[i].Size := FParticles[i].InitialSize * LifeRatio;
     FParticles[i].Alpha := LifeRatio * (0.3 + 0.7 * Abs(Sin(GetTickCount * 0.02 + FParticles[i].Phase)));
   end;
@@ -1234,7 +1299,6 @@ begin
   begin
     if FParticles[i].Life <= 0 then Continue;
 
-    // Simple physics
     FParticles[i].VelX := FParticles[i].VelX + FParticles[i].AccX * DeltaTime;
     FParticles[i].VelY := FParticles[i].VelY + FParticles[i].AccY * DeltaTime;
     FParticles[i].X := FParticles[i].X + FParticles[i].VelX * DeltaTime;
@@ -1244,7 +1308,6 @@ begin
     FParticles[i].Life := FParticles[i].Life - (DeltaTime / FParticles[i].MaxLife);
     LifeRatio := FParticles[i].Life;
 
-    // Growing size, fading alpha
     FParticles[i].Size := FParticles[i].InitialSize * (1 + (1 - LifeRatio) * 1.5);
     FParticles[i].Alpha := 0.6 * LifeRatio;
   end;
@@ -1262,7 +1325,6 @@ begin
     FParticles[i].Life := FParticles[i].Life - (DeltaTime / FParticles[i].MaxLife);
     LifeRatio := FParticles[i].Life;
 
-    // Pulsing size and alpha
     FParticles[i].Size := FParticles[i].InitialSize * (0.5 + 0.5 * Sin(GetTickCount * 0.01 + FParticles[i].Phase));
     FParticles[i].Alpha := LifeRatio * (0.4 + 0.6 * Sin(GetTickCount * 0.008 + FParticles[i].Phase));
   end;
@@ -1277,7 +1339,6 @@ begin
   begin
     if FParticles[i].Life <= 0 then Continue;
 
-    // Physics with center attraction
     FParticles[i].VelX := FParticles[i].VelX + FParticles[i].AccX * DeltaTime;
     FParticles[i].VelY := FParticles[i].VelY + FParticles[i].AccY * DeltaTime;
     FParticles[i].X := FParticles[i].X + FParticles[i].VelX * DeltaTime;
@@ -1287,7 +1348,6 @@ begin
     FParticles[i].Life := FParticles[i].Life - (DeltaTime / FParticles[i].MaxLife);
     LifeRatio := FParticles[i].Life;
 
-    // Simple size and alpha
     FParticles[i].Size := FParticles[i].InitialSize * LifeRatio;
     FParticles[i].Alpha := SmoothStep(0, 0.4, LifeRatio);
   end;
@@ -1302,7 +1362,6 @@ begin
   begin
     if FParticles[i].Life <= 0 then Continue;
 
-    // Simple physics
     FParticles[i].VelX := FParticles[i].VelX + FParticles[i].AccX * DeltaTime;
     FParticles[i].VelY := FParticles[i].VelY + FParticles[i].AccY * DeltaTime;
     FParticles[i].X := FParticles[i].X + FParticles[i].VelX * DeltaTime;
@@ -1312,7 +1371,6 @@ begin
     FParticles[i].Life := FParticles[i].Life - (DeltaTime / FParticles[i].MaxLife);
     LifeRatio := FParticles[i].Life;
 
-    // Simple size and alpha
     FParticles[i].Size := FParticles[i].InitialSize * LifeRatio;
     FParticles[i].Alpha := 0.8 * LifeRatio;
   end;
@@ -1327,7 +1385,6 @@ begin
   begin
     if FParticles[i].Life <= 0 then Continue;
 
-    // Simple physics like ice
     FParticles[i].VelX := FParticles[i].VelX + FParticles[i].AccX * DeltaTime;
     FParticles[i].VelY := FParticles[i].VelY + FParticles[i].AccY * DeltaTime;
     FParticles[i].X := FParticles[i].X + FParticles[i].VelX * DeltaTime;
@@ -1337,7 +1394,6 @@ begin
     FParticles[i].Life := FParticles[i].Life - (DeltaTime / FParticles[i].MaxLife);
     LifeRatio := FParticles[i].Life;
 
-    // Simple size and alpha with sparkle
     FParticles[i].Size := FParticles[i].InitialSize * LifeRatio;
     FParticles[i].Alpha := LifeRatio * (0.7 + 0.3 * Sin(GetTickCount * 0.015 + FParticles[i].Phase));
   end;
@@ -1352,14 +1408,12 @@ begin
   begin
     if FParticles[i].Life <= 0 then Continue;
 
-    // Simple linear motion
     FParticles[i].X := FParticles[i].X + FParticles[i].VelX * DeltaTime;
     FParticles[i].Y := FParticles[i].Y + FParticles[i].VelY * DeltaTime;
 
     FParticles[i].Life := FParticles[i].Life - (DeltaTime / FParticles[i].MaxLife);
     LifeRatio := FParticles[i].Life;
 
-    // Simple alpha fade
     FParticles[i].Alpha := LifeRatio;
   end;
 end;
@@ -1373,7 +1427,6 @@ begin
   begin
     if FParticles[i].Life <= 0 then Continue;
 
-    // Simple physics like explosion
     FParticles[i].VelX := FParticles[i].VelX + FParticles[i].AccX * DeltaTime;
     FParticles[i].VelY := FParticles[i].VelY + FParticles[i].AccY * DeltaTime;
     FParticles[i].X := FParticles[i].X + FParticles[i].VelX * DeltaTime;
@@ -1383,13 +1436,69 @@ begin
     FParticles[i].Life := FParticles[i].Life - (DeltaTime / FParticles[i].MaxLife);
     LifeRatio := FParticles[i].Life;
 
-    // Simple size and alpha with prismatic effect
     FParticles[i].Size := FParticles[i].InitialSize * LifeRatio;
     FParticles[i].Alpha := LifeRatio * (0.6 + 0.4 * Sin(GetTickCount * 0.012 + FParticles[i].Phase));
   end;
 end;
 
-// ORIGINAL RENDER METHODS (unchanged)
+// RENDER METHODS
+
+procedure TParticleSystem.RenderLaserParticles(Canvas: TCanvas; CenterX, CenterY: Integer);
+var
+  i: Integer;
+  X, Y: Integer;
+begin
+  Canvas.Pen.Style := psSolid;
+  Canvas.Pen.Width := 3;
+  Canvas.Pen.Color := RGB(255, 0, 0);
+
+  for i := 0 to FParticleCount - 1 do
+  begin
+    if FParticles[i].Life <= 0 then Continue;
+
+    X := CenterX + Round(FParticles[i].X);
+    Y := CenterY + Round(FParticles[i].Y);
+
+    Canvas.MoveTo(CenterX, CenterY);
+    Canvas.LineTo(X, Y);
+
+    Canvas.Pen.Style := psClear;
+    Canvas.Brush.Color := RGB(255, 100, 100);
+    Canvas.Brush.Style := bsSolid;
+    Canvas.Ellipse(X - 2, Y - 2, X + 2, Y + 2);
+    Canvas.Pen.Style := psSolid;
+  end;
+end;
+
+procedure TParticleSystem.RenderCrystalParticles(Canvas: TCanvas; CenterX, CenterY: Integer);
+var
+  i: Integer;
+  X, Y, Size: Integer;
+begin
+  Canvas.Pen.Style := psClear;
+
+  for i := 0 to FParticleCount - 1 do
+  begin
+    if FParticles[i].Life <= 0 then Continue;
+
+    X := CenterX + Round(FParticles[i].X);
+    Y := CenterY + Round(FParticles[i].Y);
+    Size := Round(FParticles[i].Size);
+
+    if Size > 0 then
+    begin
+      DrawGlow(Canvas, X, Y, Size, FParticles[i].Color, FParticles[i].Alpha);
+
+      Canvas.Pen.Color := RGB(255, 255, 255);
+      Canvas.Pen.Style := psSolid;
+      Canvas.Pen.Width := 1;
+      Canvas.MoveTo(X - Size, Y - Size);
+      Canvas.LineTo(X + Size, Y + Size);
+      Canvas.MoveTo(X + Size, Y - Size);
+      Canvas.LineTo(X - Size, Y + Size);
+    end;
+  end;
+end;
 
 procedure TParticleSystem.RenderFireParticles(Canvas: TCanvas; CenterX, CenterY: Integer);
 var
@@ -1454,7 +1563,6 @@ begin
     begin
       DrawGlow(Canvas, X, Y, Size, FParticles[i].Color, FParticles[i].Alpha);
 
-      // Simple star sparkle
       Canvas.Pen.Color := RGB(255, 255, 255);
       Canvas.Pen.Style := psSolid;
       Canvas.Pen.Width := 2;
@@ -1507,7 +1615,6 @@ begin
     end;
   end;
 
-  // Simple electric lines
   Canvas.Pen.Style := psSolid;
   Canvas.Pen.Width := 2;
   Canvas.Pen.Color := RGB(255, 255, 200);
@@ -1543,7 +1650,6 @@ begin
     Canvas.Font.Size := Max(8, TextSize);
     Canvas.Font.Color := RGB(0, Round(180 + 75 * FParticles[i].Life), 0);
 
-    // Character selection
     if (GetTickCount + i * 100) mod 500 < 250 then
       Ch := Chr(Ord('A') + Round(FParticles[i].Data1))
     else
@@ -1573,8 +1679,6 @@ begin
   end;
 end;
 
-// NEW RENDER METHODS - Following same patterns
-
 procedure TParticleSystem.RenderIceParticles(Canvas: TCanvas; CenterX, CenterY: Integer);
 var
   i: Integer;
@@ -1594,7 +1698,6 @@ begin
     begin
       DrawGlow(Canvas, X, Y, Size, FParticles[i].Color, FParticles[i].Alpha);
 
-      // Crystal sparkle effect
       Canvas.Pen.Color := RGB(255, 255, 255);
       Canvas.Pen.Style := psSolid;
       Canvas.Pen.Width := 1;
@@ -1647,7 +1750,6 @@ begin
     begin
       DrawGlow(Canvas, X, Y, Size, FParticles[i].Color, FParticles[i].Alpha);
 
-      // Star points
       Canvas.Pen.Color := RGB(255, 255, 255);
       Canvas.Pen.Style := psSolid;
       Canvas.Pen.Width := 2;
@@ -1680,7 +1782,6 @@ begin
 
     if Size > 0 then
     begin
-      // Softer rendering for smoke
       Canvas.Brush.Color := BlendColor(clBlack, FParticles[i].Color, FParticles[i].Alpha * 0.3);
       Canvas.Brush.Style := bsSolid;
       Canvas.Ellipse(X - Size, Y - Size, X + Size, Y + Size);
@@ -1749,7 +1850,6 @@ begin
 
     if Size > 0 then
     begin
-      // Streaky wind effect
       Canvas.Brush.Color := BlendColor(clBlack, FParticles[i].Color, FParticles[i].Alpha * 0.6);
       Canvas.Brush.Style := bsSolid;
       Canvas.Ellipse(X - Size * 2, Y - Size div 2, X + Size * 2, Y + Size div 2);
@@ -1779,66 +1879,6 @@ begin
   end;
 end;
 
-procedure TParticleSystem.RenderLaserParticles(Canvas: TCanvas; CenterX, CenterY: Integer);
-var
-  i: Integer;
-  X, Y: Integer;
-begin
-  Canvas.Pen.Style := psSolid;
-  Canvas.Pen.Width := 3;
-  Canvas.Pen.Color := RGB(255, 0, 0);
-
-  for i := 0 to FParticleCount - 1 do
-  begin
-    if FParticles[i].Life <= 0 then Continue;
-
-    X := CenterX + Round(FParticles[i].X);
-    Y := CenterY + Round(FParticles[i].Y);
-
-    // Draw laser beam
-    Canvas.MoveTo(CenterX, CenterY);
-    Canvas.LineTo(X, Y);
-
-    // Draw end glow
-    Canvas.Pen.Style := psClear;
-    Canvas.Brush.Color := RGB(255, 100, 100);
-    Canvas.Brush.Style := bsSolid;
-    Canvas.Ellipse(X - 2, Y - 2, X + 2, Y + 2);
-    Canvas.Pen.Style := psSolid;
-  end;
-end;
-
-procedure TParticleSystem.RenderCrystalParticles(Canvas: TCanvas; CenterX, CenterY: Integer);
-var
-  i: Integer;
-  X, Y, Size: Integer;
-begin
-  Canvas.Pen.Style := psClear;
-
-  for i := 0 to FParticleCount - 1 do
-  begin
-    if FParticles[i].Life <= 0 then Continue;
-
-    X := CenterX + Round(FParticles[i].X);
-    Y := CenterY + Round(FParticles[i].Y);
-    Size := Round(FParticles[i].Size);
-
-    if Size > 0 then
-    begin
-      DrawGlow(Canvas, X, Y, Size, FParticles[i].Color, FParticles[i].Alpha);
-
-      // Crystal facets
-      Canvas.Pen.Color := RGB(255, 255, 255);
-      Canvas.Pen.Style := psSolid;
-      Canvas.Pen.Width := 1;
-      Canvas.MoveTo(X - Size, Y - Size);
-      Canvas.LineTo(X + Size, Y + Size);
-      Canvas.MoveTo(X + Size, Y - Size);
-      Canvas.LineTo(X - Size, Y + Size);
-    end;
-  end;
-end;
-
 procedure TParticleSystem.Update(DeltaTime: Double);
 begin
   case FAnimationType of
@@ -1849,7 +1889,6 @@ begin
     atSparks: UpdateSparksParticles(DeltaTime);
     atMatrix: UpdateMatrixParticles(DeltaTime);
     atRainbow: UpdateRainbowParticles(DeltaTime);
-    // NEW ANIMATIONS
     atIce: UpdateIceParticles(DeltaTime);
     atFlame: UpdateFlameParticles(DeltaTime);
     atStars: UpdateStarsParticles(DeltaTime);
@@ -1873,33 +1912,38 @@ begin
     atSparks: RenderSparksParticles(Canvas, CenterX, CenterY);
     atMatrix: RenderMatrixParticles(Canvas, CenterX, CenterY);
     atRainbow: RenderRainbowParticles(Canvas, CenterX, CenterY);
-    // NEW ANIMATIONS
-  atIce: RenderIceParticles(Canvas, CenterX, CenterY);
-   atFlame: RenderFlameParticles(Canvas, CenterX, CenterY);
-   atStars: RenderStarsParticles(Canvas, CenterX, CenterY);
-   atSmoke: RenderSmokeParticles(Canvas, CenterX, CenterY);
-   atNeon: RenderNeonParticles(Canvas, CenterX, CenterY);
-   atPlasma: RenderPlasmaParticles(Canvas, CenterX, CenterY);
-   atWind: RenderWindParticles(Canvas, CenterX, CenterY);
-   atGold: RenderGoldParticles(Canvas, CenterX, CenterY);
-   atLaser: RenderLaserParticles(Canvas, CenterX, CenterY);
-   atCrystal: RenderCrystalParticles(Canvas, CenterX, CenterY);
- end;
+    atIce: RenderIceParticles(Canvas, CenterX, CenterY);
+    atFlame: RenderFlameParticles(Canvas, CenterX, CenterY);
+    atStars: RenderStarsParticles(Canvas, CenterX, CenterY);
+    atSmoke: RenderSmokeParticles(Canvas, CenterX, CenterY);
+    atNeon: RenderNeonParticles(Canvas, CenterX, CenterY);
+    atPlasma: RenderPlasmaParticles(Canvas, CenterX, CenterY);
+    atWind: RenderWindParticles(Canvas, CenterX, CenterY);
+    atGold: RenderGoldParticles(Canvas, CenterX, CenterY);
+    atLaser: RenderLaserParticles(Canvas, CenterX, CenterY);
+    atCrystal: RenderCrystalParticles(Canvas, CenterX, CenterY);
+  end;
 end;
 
 function TParticleSystem.IsAlive: Boolean;
 var
- i: Integer;
+  i: Integer;
 begin
- Result := False;
- for i := 0 to FParticleCount - 1 do
- begin
-   if FParticles[i].Life > 0 then
-   begin
-     Result := True;
-     Exit;
-   end;
- end;
+  Result := False;
+  for i := 0 to FParticleCount - 1 do
+  begin
+    if FParticles[i].Life > 0 then
+    begin
+      Result := True;
+      Exit;
+    end;
+  end;
 end;
+
+initialization
+
+finalization
+  // Clean up sound manager on shutdown
+  TSoundManager.FreeInstance;
 
 end.

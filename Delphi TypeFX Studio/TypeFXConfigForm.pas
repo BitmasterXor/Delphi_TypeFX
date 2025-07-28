@@ -40,6 +40,28 @@ type
     lblIntensityValue: TLabel;
     lblIntensityHint: TLabel;
 
+    // NEW: Sound Settings Group
+    grpSoundSettings: TGroupBox;
+    chkEnableSounds: TCheckBox;
+    lblSoundVolume: TLabel;
+    trkSoundVolume: TTrackBar;
+    lblVolumeValue: TLabel;
+
+    lblBasicKeySound: TLabel;
+    edtBasicKeySound: TEdit;
+    btnBrowseBasicKey: TButton;
+    btnTestBasicKey: TButton;
+
+    lblEnterKeySound: TLabel;
+    edtEnterKeySound: TEdit;
+    btnBrowseEnterKey: TButton;
+    btnTestEnterKey: TButton;
+
+    lblBackspaceSound: TLabel;
+    edtBackspaceSound: TEdit;
+    btnBrowseBackspace: TButton;
+    btnTestBackspace: TButton;
+
     // Preview Group
     grpPreview: TGroupBox;
     pnlPreview: TPanel;
@@ -53,6 +75,9 @@ type
     btnCancel: TButton;
     btnReset: TButton;
     btnAbout: TButton;
+
+    // NEW: File dialog for sound files
+    dlgOpenSound: TOpenDialog;
 
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -68,8 +93,19 @@ type
     procedure trkDurationChange(Sender: TObject);
     procedure trkIntensityChange(Sender: TObject);
 
+    // NEW: Sound event handlers
+    procedure chkEnableSoundsClick(Sender: TObject);
+    procedure trkSoundVolumeChange(Sender: TObject);
+    procedure btnBrowseBasicKeyClick(Sender: TObject);
+    procedure btnBrowseEnterKeyClick(Sender: TObject);
+    procedure btnBrowseBackspaceClick(Sender: TObject);
+    procedure btnTestBasicKeyClick(Sender: TObject);
+    procedure btnTestEnterKeyClick(Sender: TObject);
+    procedure btnTestBackspaceClick(Sender: TObject);
+
     procedure UpdatePreview;
     procedure UpdateControls;
+    procedure UpdateSoundControls; // NEW
 
   private
     FConfig: TTypeFXConfig;
@@ -96,6 +132,10 @@ type
     procedure OnStopTimer(Sender: TObject);
     procedure DrawPreviewEffect(Canvas: TCanvas; Frame: Integer);
     procedure InitializePreviewParticles;
+
+    // NEW: Sound helper methods
+    procedure BrowseSoundFile(EditControl: TEdit; const Title: string);
+    procedure TestSoundFile(const FileName: string);
 
   public
     property Config: TTypeFXConfig read FConfig write FConfig;
@@ -127,7 +167,15 @@ begin
     Form.chkShowOnDelete.Checked := AConfig.ShowOnDelete;
     Form.chkRandomOffset.Checked := AConfig.RandomOffset;
 
+    // NEW: Load sound settings
+    Form.chkEnableSounds.Checked := AConfig.SoundSettings.EnableSounds;
+    Form.trkSoundVolume.Position := AConfig.SoundSettings.SoundVolume;
+    Form.edtBasicKeySound.Text := AConfig.SoundSettings.BasicKeySound;
+    Form.edtEnterKeySound.Text := AConfig.SoundSettings.EnterKeySound;
+    Form.edtBackspaceSound.Text := AConfig.SoundSettings.BackspaceSound;
+
     Form.UpdateControls;
+    Form.UpdateSoundControls;
     Form.UpdatePreview;
 
     if Form.ShowModal = mrOK then
@@ -181,6 +229,15 @@ begin
   trkIntensity.Max := 10;
   trkIntensity.Position := 5;
 
+  // NEW: Setup sound volume trackbar
+  trkSoundVolume.Min := 0;
+  trkSoundVolume.Max := 100;
+  trkSoundVolume.Position := 75;
+
+  // NEW: Setup sound file dialog
+  dlgOpenSound.Filter := 'WAV Audio Files (*.wav)|*.wav|All Files (*.*)|*.*';
+  dlgOpenSound.DefaultExt := 'wav';
+
   // Set defaults
   ResetToDefaults;
 
@@ -190,6 +247,7 @@ begin
   imgPreview.Center := True;
 
   UpdateControls;
+  UpdateSoundControls;
 end;
 
 procedure TfrmTypeFXConfig.FormDestroy(Sender: TObject);
@@ -213,7 +271,15 @@ begin
   chkShowOnDelete.Checked := FConfig.ShowOnDelete;
   chkRandomOffset.Checked := FConfig.RandomOffset;
 
+  // NEW: Reset sound settings
+  chkEnableSounds.Checked := FConfig.SoundSettings.EnableSounds;
+  trkSoundVolume.Position := FConfig.SoundSettings.SoundVolume;
+  edtBasicKeySound.Text := FConfig.SoundSettings.BasicKeySound;
+  edtEnterKeySound.Text := FConfig.SoundSettings.EnterKeySound;
+  edtBackspaceSound.Text := FConfig.SoundSettings.BackspaceSound;
+
   UpdateControls;
+  UpdateSoundControls;
   UpdatePreview;
 end;
 
@@ -294,10 +360,111 @@ begin
   end;
 end;
 
+// NEW: Update sound controls
+procedure TfrmTypeFXConfig.UpdateSoundControls;
+var
+  SoundsEnabled: Boolean;
+begin
+  SoundsEnabled := chkEnableSounds.Checked;
+
+  // Enable/disable sound controls based on master switch
+  lblSoundVolume.Enabled := SoundsEnabled;
+  trkSoundVolume.Enabled := SoundsEnabled;
+  lblVolumeValue.Enabled := SoundsEnabled;
+
+  lblBasicKeySound.Enabled := SoundsEnabled;
+  edtBasicKeySound.Enabled := SoundsEnabled;
+  btnBrowseBasicKey.Enabled := SoundsEnabled;
+  btnTestBasicKey.Enabled := SoundsEnabled and (edtBasicKeySound.Text <> '');
+
+  lblEnterKeySound.Enabled := SoundsEnabled;
+  edtEnterKeySound.Enabled := SoundsEnabled;
+  btnBrowseEnterKey.Enabled := SoundsEnabled;
+  btnTestEnterKey.Enabled := SoundsEnabled and (edtEnterKeySound.Text <> '');
+
+  lblBackspaceSound.Enabled := SoundsEnabled;
+  edtBackspaceSound.Enabled := SoundsEnabled;
+  btnBrowseBackspace.Enabled := SoundsEnabled;
+  btnTestBackspace.Enabled := SoundsEnabled and (edtBackspaceSound.Text <> '');
+
+  // Update volume display
+  lblVolumeValue.Caption := Format('%d%%', [trkSoundVolume.Position]);
+end;
+
 procedure TfrmTypeFXConfig.UpdatePreview;
 begin
   CreatePreviewBitmap;
 end;
+
+// NEW: Sound event handlers
+procedure TfrmTypeFXConfig.chkEnableSoundsClick(Sender: TObject);
+begin
+  UpdateSoundControls;
+end;
+
+procedure TfrmTypeFXConfig.trkSoundVolumeChange(Sender: TObject);
+begin
+  UpdateSoundControls;
+end;
+
+procedure TfrmTypeFXConfig.btnBrowseBasicKeyClick(Sender: TObject);
+begin
+  BrowseSoundFile(edtBasicKeySound, 'Select Basic Key Sound');
+end;
+
+procedure TfrmTypeFXConfig.btnBrowseEnterKeyClick(Sender: TObject);
+begin
+  BrowseSoundFile(edtEnterKeySound, 'Select Enter Key Sound');
+end;
+
+procedure TfrmTypeFXConfig.btnBrowseBackspaceClick(Sender: TObject);
+begin
+  BrowseSoundFile(edtBackspaceSound, 'Select Backspace Key Sound');
+end;
+
+procedure TfrmTypeFXConfig.btnTestBasicKeyClick(Sender: TObject);
+begin
+  TestSoundFile(edtBasicKeySound.Text);
+end;
+
+procedure TfrmTypeFXConfig.btnTestEnterKeyClick(Sender: TObject);
+begin
+  TestSoundFile(edtEnterKeySound.Text);
+end;
+
+procedure TfrmTypeFXConfig.btnTestBackspaceClick(Sender: TObject);
+begin
+  TestSoundFile(edtBackspaceSound.Text);
+end;
+
+// NEW: Sound helper methods
+procedure TfrmTypeFXConfig.BrowseSoundFile(EditControl: TEdit; const Title: string);
+begin
+  dlgOpenSound.Title := Title;
+  if (EditControl.Text <> '') and FileExists(EditControl.Text) then
+    dlgOpenSound.FileName := EditControl.Text;
+
+  if dlgOpenSound.Execute then
+  begin
+    EditControl.Text := dlgOpenSound.FileName;
+    UpdateSoundControls;
+  end;
+end;
+
+procedure TfrmTypeFXConfig.TestSoundFile(const FileName: string);
+begin
+  if FileExists(FileName) then
+  begin
+    TSoundManager.GetInstance.PlaySound(FileName, trkSoundVolume.Position);
+  end
+  else
+  begin
+    ShowMessage('Sound file not found: ' + FileName);
+  end;
+end;
+
+// Rest of the implementation remains the same as before...
+// [Include all the existing preview methods: InitializePreviewParticles, CreatePreviewBitmap, etc.]
 
 procedure TfrmTypeFXConfig.InitializePreviewParticles;
 var
@@ -648,425 +815,433 @@ begin
         if FPreviewParticles[i].Life <= 0 then
         begin
           FPreviewParticles[i].X := Random * 16 - 8;
-         FPreviewParticles[i].Y := Random * 16 - 8;
-         FPreviewParticles[i].Life := 1.0;
-       end;
-     end;
+          FPreviewParticles[i].Y := Random * 16 - 8;
+          FPreviewParticles[i].Life := 1.0;
+        end;
+      end;
 
-     atMagic:
-     begin
-       FPreviewParticles[i].Angle := FPreviewParticles[i].Angle + 3 * DeltaTime;
-       FPreviewParticles[i].X := Cos(FPreviewParticles[i].Angle) * 10;
-       FPreviewParticles[i].Y := Sin(FPreviewParticles[i].Angle) * 10 * 0.7;
-       FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 0.7;
-       if FPreviewParticles[i].Life <= 0 then
-         FPreviewParticles[i].Life := 1.0;
-     end;
+      atMagic:
+      begin
+        FPreviewParticles[i].Angle := FPreviewParticles[i].Angle + 3 * DeltaTime;
+        FPreviewParticles[i].X := Cos(FPreviewParticles[i].Angle) * 10;
+        FPreviewParticles[i].Y := Sin(FPreviewParticles[i].Angle) * 10 * 0.7;
+        FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 0.7;
+        if FPreviewParticles[i].Life <= 0 then
+          FPreviewParticles[i].Life := 1.0;
+      end;
 
-     atExplosion:
-     begin
-       FPreviewParticles[i].X := FPreviewParticles[i].X + FPreviewParticles[i].VelX * DeltaTime;
-       FPreviewParticles[i].Y := FPreviewParticles[i].Y + FPreviewParticles[i].VelY * DeltaTime;
-       FPreviewParticles[i].VelX := FPreviewParticles[i].VelX * 0.95; // Drag
-       FPreviewParticles[i].VelY := FPreviewParticles[i].VelY * 0.95;
-       FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 0.8;
-       if FPreviewParticles[i].Life <= 0 then
-       begin
-         FPreviewParticles[i].X := Random * 6 - 3;
-         FPreviewParticles[i].Y := Random * 6 - 3;
-         FPreviewParticles[i].VelX := Cos(Random * 6.28) * 30;
-         FPreviewParticles[i].VelY := Sin(Random * 6.28) * 30;
-         FPreviewParticles[i].Life := 1.0;
-       end;
-     end;
+      atExplosion:
+      begin
+        FPreviewParticles[i].X := FPreviewParticles[i].X + FPreviewParticles[i].VelX * DeltaTime;
+        FPreviewParticles[i].Y := FPreviewParticles[i].Y + FPreviewParticles[i].VelY * DeltaTime;
+        FPreviewParticles[i].VelX := FPreviewParticles[i].VelX * 0.95; // Drag
+        FPreviewParticles[i].VelY := FPreviewParticles[i].VelY * 0.95;
+        FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 0.8;
+        if FPreviewParticles[i].Life <= 0 then
+        begin
+          FPreviewParticles[i].X := Random * 6 - 3;
+          FPreviewParticles[i].Y := Random * 6 - 3;
+          FPreviewParticles[i].VelX := Cos(Random * 6.28) * 30;
+          FPreviewParticles[i].VelY := Sin(Random * 6.28) * 30;
+          FPreviewParticles[i].Life := 1.0;
+        end;
+      end;
 
-     atSparks:
-     begin
-       FPreviewParticles[i].X := FPreviewParticles[i].X + FPreviewParticles[i].VelX * DeltaTime;
-       FPreviewParticles[i].Y := FPreviewParticles[i].Y + FPreviewParticles[i].VelY * DeltaTime;
-       FPreviewParticles[i].VelX := FPreviewParticles[i].VelX * 0.9; // Drag
-       FPreviewParticles[i].VelY := FPreviewParticles[i].VelY * 0.9;
-       FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 1.0;
-       if FPreviewParticles[i].Life <= 0 then
-       begin
-         FPreviewParticles[i].X := 0;
-         FPreviewParticles[i].Y := 0;
-         FPreviewParticles[i].VelX := Cos((i / 12) * 6.28) * 25;
-         FPreviewParticles[i].VelY := Sin((i / 12) * 6.28) * 25;
-         FPreviewParticles[i].Life := 1.0;
-       end;
-     end;
+      atSparks:
+      begin
+        FPreviewParticles[i].X := FPreviewParticles[i].X + FPreviewParticles[i].VelX * DeltaTime;
+        FPreviewParticles[i].Y := FPreviewParticles[i].Y + FPreviewParticles[i].VelY * DeltaTime;
+        FPreviewParticles[i].VelX := FPreviewParticles[i].VelX * 0.9; // Drag
+        FPreviewParticles[i].VelY := FPreviewParticles[i].VelY * 0.9;
+        FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 1.0;
+        if FPreviewParticles[i].Life <= 0 then
+        begin
+          FPreviewParticles[i].X := 0;
+          FPreviewParticles[i].Y := 0;
+          FPreviewParticles[i].VelX := Cos((i / 12) * 6.28) * 25;
+          FPreviewParticles[i].VelY := Sin((i / 12) * 6.28) * 25;
+          FPreviewParticles[i].Life := 1.0;
+        end;
+      end;
 
-     atMatrix:
-     begin
-       FPreviewParticles[i].Y := FPreviewParticles[i].Y + FPreviewParticles[i].VelY * DeltaTime;
-       FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 0.6;
-       if FPreviewParticles[i].Life <= 0 then
-       begin
-         FPreviewParticles[i].Y := -12 - Random * 4;
-         FPreviewParticles[i].Life := 1.0;
-         FPreviewParticles[i].Data1 := Random(26);
-       end;
-     end;
+      atMatrix:
+      begin
+        FPreviewParticles[i].Y := FPreviewParticles[i].Y + FPreviewParticles[i].VelY * DeltaTime;
+        FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 0.6;
+        if FPreviewParticles[i].Life <= 0 then
+        begin
+          FPreviewParticles[i].Y := -12 - Random * 4;
+          FPreviewParticles[i].Life := 1.0;
+          FPreviewParticles[i].Data1 := Random(26);
+        end;
+      end;
 
-     atRainbow:
-     begin
-       FPreviewParticles[i].Angle := FPreviewParticles[i].Angle + 3 * DeltaTime;
-       FPreviewParticles[i].X := Cos(FPreviewParticles[i].Angle) * (8 + (1 - FPreviewParticles[i].Life) * 12);
-       FPreviewParticles[i].Y := Sin(FPreviewParticles[i].Angle) * (8 + (1 - FPreviewParticles[i].Life) * 12) * 0.8;
-       FPreviewParticles[i].Phase := FPreviewParticles[i].Phase + 180 * DeltaTime;
-       if FPreviewParticles[i].Phase >= 360 then
-         FPreviewParticles[i].Phase := FPreviewParticles[i].Phase - 360;
-       FPreviewParticles[i].Color := HSVtoRGB(Round(FPreviewParticles[i].Phase), 255, 255);
-       FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 0.7;
-       if FPreviewParticles[i].Life <= 0 then
-         FPreviewParticles[i].Life := 1.0;
-     end;
+      atRainbow:
+      begin
+        FPreviewParticles[i].Angle := FPreviewParticles[i].Angle + 3 * DeltaTime;
+        FPreviewParticles[i].X := Cos(FPreviewParticles[i].Angle) * (8 + (1 - FPreviewParticles[i].Life) * 12);
+        FPreviewParticles[i].Y := Sin(FPreviewParticles[i].Angle) * (8 + (1 - FPreviewParticles[i].Life) * 12) * 0.8;
+        FPreviewParticles[i].Phase := FPreviewParticles[i].Phase + 180 * DeltaTime;
+        if FPreviewParticles[i].Phase >= 360 then
+          FPreviewParticles[i].Phase := FPreviewParticles[i].Phase - 360;
+        FPreviewParticles[i].Color := HSVtoRGB(Round(FPreviewParticles[i].Phase), 255, 255);
+        FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 0.7;
+        if FPreviewParticles[i].Life <= 0 then
+          FPreviewParticles[i].Life := 1.0;
+      end;
 
-     // NEW ANIMATION UPDATES
-     atIce:
-     begin
-       FPreviewParticles[i].X := FPreviewParticles[i].X + FPreviewParticles[i].VelX * DeltaTime;
-       FPreviewParticles[i].Y := FPreviewParticles[i].Y + FPreviewParticles[i].VelY * DeltaTime;
-       FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 0.6;
-       if FPreviewParticles[i].Life <= 0 then
-       begin
-         FPreviewParticles[i].X := Random * 16 - 8;
-         FPreviewParticles[i].Y := -12 - Random * 4;
-         FPreviewParticles[i].Life := 1.0;
-       end;
-     end;
+      // NEW ANIMATION UPDATES
+      atIce:
+      begin
+        FPreviewParticles[i].X := FPreviewParticles[i].X + FPreviewParticles[i].VelX * DeltaTime;
+        FPreviewParticles[i].Y := FPreviewParticles[i].Y + FPreviewParticles[i].VelY * DeltaTime;
+        FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 0.6;
+        if FPreviewParticles[i].Life <= 0 then
+        begin
+          FPreviewParticles[i].X := Random * 16 - 8;
+          FPreviewParticles[i].Y := -12 - Random * 4;
+          FPreviewParticles[i].Life := 1.0;
+        end;
+      end;
 
-     atFlame:
-     begin
-       FPreviewParticles[i].X := FPreviewParticles[i].X + FPreviewParticles[i].VelX * DeltaTime;
-       FPreviewParticles[i].Y := FPreviewParticles[i].Y + FPreviewParticles[i].VelY * DeltaTime;
-       FPreviewParticles[i].VelY := FPreviewParticles[i].VelY - 30 * DeltaTime;
-       FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 0.8;
-       if FPreviewParticles[i].Life <= 0 then
-       begin
-         FPreviewParticles[i].X := Random * 16 - 8;
-         FPreviewParticles[i].Y := Random * 12;
-         FPreviewParticles[i].VelX := Sin(Random * PI/2 - PI/4) * 30;
-         FPreviewParticles[i].VelY := -Cos(Random * PI/2 - PI/4) * 30;
-         FPreviewParticles[i].Life := 1.0;
-       end;
-     end;
+      atFlame:
+      begin
+        FPreviewParticles[i].X := FPreviewParticles[i].X + FPreviewParticles[i].VelX * DeltaTime;
+        FPreviewParticles[i].Y := FPreviewParticles[i].Y + FPreviewParticles[i].VelY * DeltaTime;
+        FPreviewParticles[i].VelY := FPreviewParticles[i].VelY - 30 * DeltaTime;
+        FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 0.8;
+        if FPreviewParticles[i].Life <= 0 then
+        begin
+          FPreviewParticles[i].X := Random * 16 - 8;
+          FPreviewParticles[i].Y := Random * 12;
+          FPreviewParticles[i].VelX := Sin(Random * PI/2 - PI/4) * 30;
+          FPreviewParticles[i].VelY := -Cos(Random * PI/2 - PI/4) * 30;
+          FPreviewParticles[i].Life := 1.0;
+        end;
+      end;
 
-     atStars:
-     begin
-       FPreviewParticles[i].X := FPreviewParticles[i].X + FPreviewParticles[i].VelX * DeltaTime;
-       FPreviewParticles[i].Y := FPreviewParticles[i].Y + FPreviewParticles[i].VelY * DeltaTime;
-       FPreviewParticles[i].VelX := FPreviewParticles[i].VelX * 0.9;
-       FPreviewParticles[i].VelY := FPreviewParticles[i].VelY * 0.9;
-       FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 0.7;
-       if FPreviewParticles[i].Life <= 0 then
-       begin
-         FPreviewParticles[i].X := Random * 6 - 3;
-         FPreviewParticles[i].Y := Random * 6 - 3;
-         FPreviewParticles[i].Life := 1.0;
-       end;
-     end;
+      atStars:
+      begin
+        FPreviewParticles[i].X := FPreviewParticles[i].X + FPreviewParticles[i].VelX * DeltaTime;
+        FPreviewParticles[i].Y := FPreviewParticles[i].Y + FPreviewParticles[i].VelY * DeltaTime;
+        FPreviewParticles[i].VelX := FPreviewParticles[i].VelX * 0.9;
+        FPreviewParticles[i].VelY := FPreviewParticles[i].VelY * 0.9;
+        FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 0.7;
+        if FPreviewParticles[i].Life <= 0 then
+        begin
+          FPreviewParticles[i].X := Random * 6 - 3;
+          FPreviewParticles[i].Y := Random * 6 - 3;
+          FPreviewParticles[i].Life := 1.0;
+        end;
+      end;
 
-     atSmoke:
-     begin
-       FPreviewParticles[i].X := FPreviewParticles[i].X + FPreviewParticles[i].VelX * DeltaTime;
-       FPreviewParticles[i].Y := FPreviewParticles[i].Y + FPreviewParticles[i].VelY * DeltaTime;
-       FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 0.5;
-       if FPreviewParticles[i].Life <= 0 then
-       begin
-         FPreviewParticles[i].X := Random * 12 - 6;
-         FPreviewParticles[i].Y := Random * 8;
-         FPreviewParticles[i].Life := 1.0;
-       end;
-     end;
+      atSmoke:
+      begin
+        FPreviewParticles[i].X := FPreviewParticles[i].X + FPreviewParticles[i].VelX * DeltaTime;
+        FPreviewParticles[i].Y := FPreviewParticles[i].Y + FPreviewParticles[i].VelY * DeltaTime;
+        FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 0.5;
+        if FPreviewParticles[i].Life <= 0 then
+        begin
+          FPreviewParticles[i].X := Random * 12 - 6;
+          FPreviewParticles[i].Y := Random * 8;
+          FPreviewParticles[i].Life := 1.0;
+        end;
+      end;
 
-     atNeon:
-     begin
-       FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 0.7;
-       if FPreviewParticles[i].Life <= 0 then
-         FPreviewParticles[i].Life := 1.0;
-     end;
+      atNeon:
+      begin
+        FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 0.7;
+        if FPreviewParticles[i].Life <= 0 then
+          FPreviewParticles[i].Life := 1.0;
+      end;
 
-     atPlasma:
-     begin
-       FPreviewParticles[i].X := FPreviewParticles[i].X + FPreviewParticles[i].VelX * DeltaTime;
-       FPreviewParticles[i].Y := FPreviewParticles[i].Y + FPreviewParticles[i].VelY * DeltaTime;
-       FPreviewParticles[i].VelX := FPreviewParticles[i].VelX - FPreviewParticles[i].X * 10 * DeltaTime;
-       FPreviewParticles[i].VelY := FPreviewParticles[i].VelY - FPreviewParticles[i].Y * 10 * DeltaTime;
-       FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 1.2;
-       if FPreviewParticles[i].Life <= 0 then
-       begin
-         FPreviewParticles[i].X := Random * 8 - 4;
-         FPreviewParticles[i].Y := Random * 8 - 4;
-         FPreviewParticles[i].Life := 1.0;
-       end;
-     end;
+      atPlasma:
+      begin
+        FPreviewParticles[i].X := FPreviewParticles[i].X + FPreviewParticles[i].VelX * DeltaTime;
+        FPreviewParticles[i].Y := FPreviewParticles[i].Y + FPreviewParticles[i].VelY * DeltaTime;
+        FPreviewParticles[i].VelX := FPreviewParticles[i].VelX - FPreviewParticles[i].X * 10 * DeltaTime;
+        FPreviewParticles[i].VelY := FPreviewParticles[i].VelY - FPreviewParticles[i].Y * 10 * DeltaTime;
+        FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 1.2;
+        if FPreviewParticles[i].Life <= 0 then
+        begin
+          FPreviewParticles[i].X := Random * 8 - 4;
+          FPreviewParticles[i].Y := Random * 8 - 4;
+          FPreviewParticles[i].Life := 1.0;
+        end;
+      end;
 
-     atWind:
-     begin
-       FPreviewParticles[i].X := FPreviewParticles[i].X + FPreviewParticles[i].VelX * DeltaTime;
-       FPreviewParticles[i].Y := FPreviewParticles[i].Y + FPreviewParticles[i].VelY * DeltaTime;
-       FPreviewParticles[i].VelX := FPreviewParticles[i].VelX * 0.95;
-       FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 0.8;
-       if FPreviewParticles[i].Life <= 0 then
-       begin
-         FPreviewParticles[i].X := -12 - Random * 4;
-         FPreviewParticles[i].Y := Random * 12 - 6;
-         FPreviewParticles[i].Life := 1.0;
-       end;
-     end;
+      atWind:
+      begin
+        FPreviewParticles[i].X := FPreviewParticles[i].X + FPreviewParticles[i].VelX * DeltaTime;
+        FPreviewParticles[i].Y := FPreviewParticles[i].Y + FPreviewParticles[i].VelY * DeltaTime;
+        FPreviewParticles[i].VelX := FPreviewParticles[i].VelX * 0.95;
+        FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 0.8;
+        if FPreviewParticles[i].Life <= 0 then
+        begin
+          FPreviewParticles[i].X := -12 - Random * 4;
+          FPreviewParticles[i].Y := Random * 12 - 6;
+          FPreviewParticles[i].Life := 1.0;
+        end;
+      end;
 
-     atGold:
-     begin
-       FPreviewParticles[i].X := FPreviewParticles[i].X + FPreviewParticles[i].VelX * DeltaTime;
-       FPreviewParticles[i].Y := FPreviewParticles[i].Y + FPreviewParticles[i].VelY * DeltaTime;
-       FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 0.6;
-       if FPreviewParticles[i].Life <= 0 then
-       begin
-         FPreviewParticles[i].X := Random * 16 - 8;
-         FPreviewParticles[i].Y := -12 - Random * 4;
-         FPreviewParticles[i].Life := 1.0;
-       end;
-     end;
+      atGold:
+      begin
+        FPreviewParticles[i].X := FPreviewParticles[i].X + FPreviewParticles[i].VelX * DeltaTime;
+        FPreviewParticles[i].Y := FPreviewParticles[i].Y + FPreviewParticles[i].VelY * DeltaTime;
+        FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 0.6;
+        if FPreviewParticles[i].Life <= 0 then
+        begin
+          FPreviewParticles[i].X := Random * 16 - 8;
+          FPreviewParticles[i].Y := -12 - Random * 4;
+          FPreviewParticles[i].Life := 1.0;
+        end;
+      end;
 
-     atLaser:
-     begin
-       FPreviewParticles[i].X := FPreviewParticles[i].X + FPreviewParticles[i].VelX * DeltaTime;
-       FPreviewParticles[i].Y := FPreviewParticles[i].Y + FPreviewParticles[i].VelY * DeltaTime;
-       FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 2.0;
-       if FPreviewParticles[i].Life <= 0 then
-       begin
-         FPreviewParticles[i].X := 0;
-         FPreviewParticles[i].Y := 0;
-         FPreviewParticles[i].Life := 1.0;
-       end;
-     end;
+      atLaser:
+      begin
+        FPreviewParticles[i].X := FPreviewParticles[i].X + FPreviewParticles[i].VelX * DeltaTime;
+        FPreviewParticles[i].Y := FPreviewParticles[i].Y + FPreviewParticles[i].VelY * DeltaTime;
+        FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 2.0;
+        if FPreviewParticles[i].Life <= 0 then
+        begin
+          FPreviewParticles[i].X := 0;
+          FPreviewParticles[i].Y := 0;
+          FPreviewParticles[i].Life := 1.0;
+        end;
+      end;
 
-     atCrystal:
-     begin
-       FPreviewParticles[i].X := FPreviewParticles[i].X + FPreviewParticles[i].VelX * DeltaTime;
-       FPreviewParticles[i].Y := FPreviewParticles[i].Y + FPreviewParticles[i].VelY * DeltaTime;
-       FPreviewParticles[i].VelX := FPreviewParticles[i].VelX * 0.9;
-       FPreviewParticles[i].VelY := FPreviewParticles[i].VelY * 0.9;
-       FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 0.8;
-       if FPreviewParticles[i].Life <= 0 then
-       begin
-         FPreviewParticles[i].X := Random * 6 - 3;
-         FPreviewParticles[i].Y := Random * 6 - 3;
-         FPreviewParticles[i].Life := 1.0;
-       end;
-     end;
-   end;
- end;
+      atCrystal:
+      begin
+        FPreviewParticles[i].X := FPreviewParticles[i].X + FPreviewParticles[i].VelX * DeltaTime;
+        FPreviewParticles[i].Y := FPreviewParticles[i].Y + FPreviewParticles[i].VelY * DeltaTime;
+        FPreviewParticles[i].VelX := FPreviewParticles[i].VelX * 0.9;
+        FPreviewParticles[i].VelY := FPreviewParticles[i].VelY * 0.9;
+        FPreviewParticles[i].Life := FPreviewParticles[i].Life - DeltaTime * 0.8;
+        if FPreviewParticles[i].Life <= 0 then
+        begin
+          FPreviewParticles[i].X := Random * 6 - 3;
+          FPreviewParticles[i].Y := Random * 6 - 3;
+          FPreviewParticles[i].Life := 1.0;
+        end;
+      end;
+    end;
+  end;
 
- // Render particles
- Canvas.Pen.Style := psClear;
- Canvas.Brush.Style := bsSolid;
+  // Render particles
+  Canvas.Pen.Style := psClear;
+  Canvas.Brush.Style := bsSolid;
 
- for i := 0 to 11 do
- begin
-   if FPreviewParticles[i].Life <= 0 then Continue;
+  for i := 0 to 11 do
+  begin
+    if FPreviewParticles[i].Life <= 0 then Continue;
 
-   x := centerX + Round(FPreviewParticles[i].X);
-   y := centerY + Round(FPreviewParticles[i].Y);
-   size := Round(FPreviewParticles[i].Size * FPreviewParticles[i].Life);
+    x := centerX + Round(FPreviewParticles[i].X);
+    y := centerY + Round(FPreviewParticles[i].Y);
+    size := Round(FPreviewParticles[i].Size * FPreviewParticles[i].Life);
 
-   if size > 0 then
-   begin
-     case FAnimationType of
+    if size > 0 then
+    begin
+      case FAnimationType of
        atMatrix:
-       begin
-         Canvas.Font.Name := 'Courier New';
-         Canvas.Font.Size := size;
-         Canvas.Font.Color := FPreviewParticles[i].Color;
-         Canvas.Brush.Style := bsClear;
-         Ch := Chr(Ord('A') + Round(FPreviewParticles[i].Data1));
-         Canvas.TextOut(x, y, Ch);
-       end;
+        begin
+          Canvas.Font.Name := 'Courier New';
+          Canvas.Font.Size := size;
+          Canvas.Font.Color := FPreviewParticles[i].Color;
+          Canvas.Brush.Style := bsClear;
+          Ch := Chr(Ord('A') + Round(FPreviewParticles[i].Data1));
+          Canvas.TextOut(x, y, Ch);
+        end;
 
-       atMagic, atStars:
-       begin
-         // Draw glow
-         Canvas.Brush.Color := FPreviewParticles[i].Color;
-         Canvas.Ellipse(x - size, y - size, x + size, y + size);
-         // Draw sparkle
-         Canvas.Pen.Style := psSolid;
-         Canvas.Pen.Color := RGB(255, 255, 255);
-         Canvas.Pen.Width := 1;
-         Canvas.MoveTo(x - size - 2, y);
-         Canvas.LineTo(x + size + 2, y);
-         Canvas.MoveTo(x, y - size - 2);
-         Canvas.LineTo(x, y + size + 2);
-         Canvas.Pen.Style := psClear;
-       end;
+        atMagic, atStars:
+        begin
+          // Draw glow
+          Canvas.Brush.Color := FPreviewParticles[i].Color;
+          Canvas.Ellipse(x - size, y - size, x + size, y + size);
+          // Draw sparkle
+          Canvas.Pen.Style := psSolid;
+          Canvas.Pen.Color := RGB(255, 255, 255);
+          Canvas.Pen.Width := 1;
+          Canvas.MoveTo(x - size - 2, y);
+          Canvas.LineTo(x + size + 2, y);
+          Canvas.MoveTo(x, y - size - 2);
+          Canvas.LineTo(x, y + size + 2);
+          Canvas.Pen.Style := psClear;
+        end;
 
-       atLaser:
-       begin
-         // Draw laser beam
-         Canvas.Pen.Style := psSolid;
-         Canvas.Pen.Width := 2;
-         Canvas.Pen.Color := RGB(255, 0, 0);
-         Canvas.MoveTo(centerX, centerY);
-         Canvas.LineTo(x, y);
-         Canvas.Pen.Style := psClear;
-       end;
+        atLaser:
+        begin
+          // Draw laser beam
+          Canvas.Pen.Style := psSolid;
+          Canvas.Pen.Width := 2;
+          Canvas.Pen.Color := RGB(255, 0, 0);
+          Canvas.MoveTo(centerX, centerY);
+          Canvas.LineTo(x, y);
+          Canvas.Pen.Style := psClear;
+        end;
 
-       else
-       begin
-         // Simple glow effect for other types
-         Canvas.Brush.Color := FPreviewParticles[i].Color;
-         Canvas.Ellipse(x - size, y - size, x + size, y + size);
-       end;
-     end;
-   end;
- end;
+        else
+        begin
+          // Simple glow effect for other types
+          Canvas.Brush.Color := FPreviewParticles[i].Color;
+          Canvas.Ellipse(x - size, y - size, x + size, y + size);
+        end;
+      end;
+    end;
+  end;
 
- // Special rendering for sparks (draw lines)
- if FAnimationType = atSparks then
- begin
-   Canvas.Pen.Style := psSolid;
-   Canvas.Pen.Width := 1;
-   Canvas.Pen.Color := RGB(255, 255, 200);
-   for i := 0 to 7 do
-   begin
-     if FPreviewParticles[i].Life <= 0 then Continue;
-     x := centerX + Round(FPreviewParticles[i].X);
-     y := centerY + Round(FPreviewParticles[i].Y);
-     Canvas.MoveTo(centerX, centerY);
-     Canvas.LineTo(x, y);
-   end;
- end;
+  // Special rendering for sparks (draw lines)
+  if FAnimationType = atSparks then
+  begin
+    Canvas.Pen.Style := psSolid;
+    Canvas.Pen.Width := 1;
+    Canvas.Pen.Color := RGB(255, 255, 200);
+    for i := 0 to 7 do
+    begin
+      if FPreviewParticles[i].Life <= 0 then Continue;
+      x := centerX + Round(FPreviewParticles[i].X);
+      y := centerY + Round(FPreviewParticles[i].Y);
+      Canvas.MoveTo(centerX, centerY);
+      Canvas.LineTo(x, y);
+    end;
+  end;
 end;
 
 procedure TfrmTypeFXConfig.StartPreviewAnimation;
 begin
- FPreviewFrame := 0;
- InitializePreviewParticles; // Reset particles
- FPreviewTimer.Interval := trkAnimationSpeed.Position;
- FPreviewTimer.Enabled := True;
+  FPreviewFrame := 0;
+  InitializePreviewParticles; // Reset particles
+  FPreviewTimer.Interval := trkAnimationSpeed.Position;
+  FPreviewTimer.Enabled := True;
 end;
 
 procedure TfrmTypeFXConfig.StopPreviewAnimation;
 begin
- FPreviewTimer.Enabled := False;
- FStopTimer.Enabled := False;
- btnTestAnimation.Caption := 'Test Animation';
+  FPreviewTimer.Enabled := False;
+  FStopTimer.Enabled := False;
+  btnTestAnimation.Caption := 'Test Animation';
 end;
 
 procedure TfrmTypeFXConfig.OnPreviewTimer(Sender: TObject);
 var
- Bitmap: TBitmap;
+  Bitmap: TBitmap;
 begin
- Inc(FPreviewFrame);
+  Inc(FPreviewFrame);
 
- // Create animated frame
- Bitmap := TBitmap.Create;
- try
-   Bitmap.Width := pnlPreview.Width - 4;
-   Bitmap.Height := pnlPreview.Height - 4;
-   Bitmap.Canvas.Brush.Color := clBlack;
-   Bitmap.Canvas.FillRect(Rect(0, 0, Bitmap.Width, Bitmap.Height));
+  // Create animated frame
+  Bitmap := TBitmap.Create;
+  try
+    Bitmap.Width := pnlPreview.Width - 4;
+    Bitmap.Height := pnlPreview.Height - 4;
+    Bitmap.Canvas.Brush.Color := clBlack;
+    Bitmap.Canvas.FillRect(Rect(0, 0, Bitmap.Width, Bitmap.Height));
 
-   DrawPreviewEffect(Bitmap.Canvas, FPreviewFrame);
+    DrawPreviewEffect(Bitmap.Canvas, FPreviewFrame);
 
-   imgPreview.Picture.Assign(Bitmap);
- finally
-   Bitmap.Free;
- end;
+    imgPreview.Picture.Assign(Bitmap);
+  finally
+    Bitmap.Free;
+  end;
 end;
 
 procedure TfrmTypeFXConfig.OnStopTimer(Sender: TObject);
 begin
- StopPreviewAnimation;
- CreatePreviewBitmap; // Return to static preview
+  StopPreviewAnimation;
+  CreatePreviewBitmap; // Return to static preview
 end;
 
 procedure TfrmTypeFXConfig.btnTestAnimationClick(Sender: TObject);
 begin
- if FPreviewTimer.Enabled then
-   StopPreviewAnimation
- else
- begin
-   StartPreviewAnimation;
-   btnTestAnimation.Caption := 'Stop Preview';
+  if FPreviewTimer.Enabled then
+    StopPreviewAnimation
+  else
+  begin
+    StartPreviewAnimation;
+    btnTestAnimation.Caption := 'Stop Preview';
 
-   // Auto-stop after duration
-   FStopTimer.Interval := trkDuration.Position;
-   FStopTimer.Enabled := True;
- end;
+    // Auto-stop after duration
+    FStopTimer.Interval := trkDuration.Position;
+    FStopTimer.Enabled := True;
+  end;
 end;
 
 procedure TfrmTypeFXConfig.btnOKClick(Sender: TObject);
 begin
- // Save configuration
- if cmbEffectStyle.ItemIndex >= 0 then
-   FConfig.EffectStyle := TEffectStyle(cmbEffectStyle.ItemIndex);
- if cmbTriggerFrequency.ItemIndex >= 0 then
-   FConfig.TriggerFrequency := TTriggerFrequency(cmbTriggerFrequency.ItemIndex);
+  // Save configuration
+  if cmbEffectStyle.ItemIndex >= 0 then
+    FConfig.EffectStyle := TEffectStyle(cmbEffectStyle.ItemIndex);
+  if cmbTriggerFrequency.ItemIndex >= 0 then
+    FConfig.TriggerFrequency := TTriggerFrequency(cmbTriggerFrequency.ItemIndex);
 
- FConfig.AnimationSpeed := trkAnimationSpeed.Position;
- FConfig.Duration := trkDuration.Position;
- FConfig.Intensity := trkIntensity.Position;
- FConfig.ShowOnDelete := chkShowOnDelete.Checked;
- FConfig.RandomOffset := chkRandomOffset.Checked;
+  FConfig.AnimationSpeed := trkAnimationSpeed.Position;
+  FConfig.Duration := trkDuration.Position;
+  FConfig.Intensity := trkIntensity.Position;
+  FConfig.ShowOnDelete := chkShowOnDelete.Checked;
+  FConfig.RandomOffset := chkRandomOffset.Checked;
 
- ModalResult := mrOK;
+  // NEW: Save sound settings
+  FConfig.SoundSettings.EnableSounds := chkEnableSounds.Checked;
+  FConfig.SoundSettings.SoundVolume := trkSoundVolume.Position;
+  FConfig.SoundSettings.BasicKeySound := edtBasicKeySound.Text;
+  FConfig.SoundSettings.EnterKeySound := edtEnterKeySound.Text;
+  FConfig.SoundSettings.BackspaceSound := edtBackspaceSound.Text;
+
+  ModalResult := mrOK;
 end;
 
 procedure TfrmTypeFXConfig.btnCancelClick(Sender: TObject);
 begin
- ModalResult := mrCancel;
+  ModalResult := mrCancel;
 end;
 
 procedure TfrmTypeFXConfig.btnResetClick(Sender: TObject);
 begin
- if MessageDlg('Reset all settings to defaults?', mtConfirmation, [mbYes, mbNo], 0) = mrYes then
-   ResetToDefaults;
+  if MessageDlg('Reset all settings to defaults?', mtConfirmation, [mbYes, mbNo], 0) = mrYes then
+    ResetToDefaults;
 end;
 
 procedure TfrmTypeFXConfig.btnAboutClick(Sender: TObject);
 begin
- MessageDlg(
-   'TypeFX Studio v1.0' + #13#10 +
-   'Visual Typing Effects for Delphi IDE' + #13#10 + #13#10 +
-   'Brings magical visual effects to your coding experience!' + #13#10 +
-   'Every keystroke becomes a visual celebration.' + #13#10 + #13#10 +
-   'Features:' + #13#10 +
-   '• Multiple animation styles (17 total!)' + #13#10 +
-   '• Configurable trigger frequency' + #13#10 +
-   '• Adjustable speed and duration' + #13#10 +
-   '• Intensity control' + #13#10 +
-   '• Random positioning' + #13#10 + #13#10 +
-   'Created with passion for the Delphi community!',
-   mtInformation, [mbOK], 0);
+  MessageDlg(
+    'TypeFX Studio v1.0' + #13#10 +
+    'Visual Typing Effects for Delphi IDE' + #13#10 + #13#10 +
+    'Brings magical visual effects to your coding experience!' + #13#10 +
+    'Every keystroke becomes a visual celebration.' + #13#10 + #13#10 +
+    'Features:' + #13#10 +
+    '• Multiple animation styles (17 total!)' + #13#10 +
+    '• Configurable trigger frequency' + #13#10 +
+    '• Adjustable speed and duration' + #13#10 +
+    '• Intensity control' + #13#10 +
+    '• Random positioning' + #13#10 +
+    '• Sound effects for key presses' + #13#10 + #13#10 +
+    'Created with passion for the Delphi community!',
+    mtInformation, [mbOK], 0);
 end;
 
 // Event handlers
 procedure TfrmTypeFXConfig.cmbEffectStyleChange(Sender: TObject);
 begin
- UpdateControls;
- UpdatePreview;
+  UpdateControls;
+  UpdatePreview;
 end;
 
 procedure TfrmTypeFXConfig.cmbTriggerFrequencyChange(Sender: TObject);
 begin
- UpdateControls;
+  UpdateControls;
 end;
 
 procedure TfrmTypeFXConfig.trkAnimationSpeedChange(Sender: TObject);
 begin
- UpdateControls;
+  UpdateControls;
 end;
 
 procedure TfrmTypeFXConfig.trkDurationChange(Sender: TObject);
 begin
- UpdateControls;
+  UpdateControls;
 end;
 
 procedure TfrmTypeFXConfig.trkIntensityChange(Sender: TObject);
 begin
- UpdateControls;
+  UpdateControls;
 end;
 
 end.

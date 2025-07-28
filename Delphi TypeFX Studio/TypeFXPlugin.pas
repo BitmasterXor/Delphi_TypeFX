@@ -89,7 +89,7 @@ type
     class function KeyboardProc(nCode: Integer; wParam: WPARAM; lParam: LPARAM): LRESULT; stdcall; static;
   end;
 
-  // Main TypeFX wizard with enhanced cursor detection
+  // Main TypeFX wizard with enhanced cursor detection and sound support
   TTypeFXWizard = class(TBaseNotifier, IOTAWizard, IOTAMenuWizard)
   private
     FAnimationOverlays: TObjectList<TTransparentAnimationOverlay>;
@@ -127,6 +127,9 @@ type
     procedure ToggleEnabled;
     procedure ShowConfigDialog;
     procedure CleanupOverlays;
+
+    // NEW: Sound-related methods
+    procedure PlayKeystrokeSound(Ch: Char);
 
     property Enabled: Boolean read FEnabled write FEnabled;
     property Config: TTypeFXConfig read FConfig write FConfig;
@@ -466,6 +469,22 @@ begin
     begin
       Ch := Chr(wParam);
       FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+    end
+    else if IsKeyDown then
+    begin
+      // Handle special keys
+      case wParam of
+        VK_RETURN: // Enter key
+        begin
+          Ch := #13;
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        VK_BACK: // Backspace key
+        begin
+          Ch := #8;
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+      end;
     end;
   end;
 end;
@@ -505,17 +524,17 @@ end;
 
 function TTypeFXWizard.GetIDString: string;
 begin
-  Result := 'TypeFXStudio.Plugin.TypingEffects.v2.2';
+  Result := 'TypeFXStudio.Plugin.TypingEffects.v2.3'; // Updated version
 end;
 
 function TTypeFXWizard.GetName: string;
 begin
-  Result := 'TypeFX Studio - Professional Visual Typing Effects';
+  Result := 'TypeFX Studio - Professional Visual Typing Effects with Sound';
 end;
 
 function TTypeFXWizard.GetMenuText: string;
 begin
-  Result := 'TypeFX Studio - Professional Typing Animation Effects';
+  Result := 'TypeFX Studio - Professional Typing Animation Effects with Sound';
 end;
 
 function TTypeFXWizard.GetState: TWizardState;
@@ -626,7 +645,6 @@ function TTypeFXWizard.GetEditorFontMetrics(EditorControl: TWinControl): TCursor
 var
   DC: HDC;
   TextMetrics: TTextMetric;
-  TempCanvas: TCanvas;
   SaveFont: HFONT;
 begin
   Result.Valid := False;
@@ -771,6 +789,23 @@ begin
   ShowConfigDialog;
 end;
 
+// NEW: Sound playback method
+procedure TTypeFXWizard.PlayKeystrokeSound(Ch: Char);
+begin
+  if not FConfig.SoundSettings.EnableSounds then
+    Exit;
+
+  // Determine which sound to play based on the character
+  case Ch of
+    #13: // Enter key
+      TSoundManager.GetInstance.PlayEnterKeySound(FConfig);
+    #8:  // Backspace key
+      TSoundManager.GetInstance.PlayBackspaceSound(FConfig);
+    else // All other keys
+      TSoundManager.GetInstance.PlayBasicKeySound(FConfig);
+  end;
+end;
+
 procedure TTypeFXWizard.OnKeystroke(Ch: Char; IsKeyDown: Boolean);
 var
   CurrentTime: Cardinal;
@@ -781,6 +816,9 @@ begin
 
   CurrentTime := GetTickCount;
   Inc(FKeystrokeCount);
+
+  // NEW: Play sound for keystroke
+  PlayKeystrokeSound(Ch);
 
   // Implement frequency control
   case FConfig.TriggerFrequency of
@@ -795,6 +833,10 @@ begin
   else
     ShouldTrigger := True;
   end;
+
+  // Handle backspace effects
+  if (Ch = #8) and not FConfig.ShowOnDelete then
+    ShouldTrigger := False;
 
   if ShouldTrigger and ((CurrentTime - FLastKeystrokeTime) > 100) then // Throttle to prevent spam
   begin
@@ -984,6 +1026,18 @@ begin
           FConfig.Intensity := Reg.ReadInteger('Intensity');
         if Reg.ValueExists('RandomOffset') then
           FConfig.RandomOffset := Reg.ReadBool('RandomOffset');
+
+        // NEW: Load sound settings
+        if Reg.ValueExists('EnableSounds') then
+          FConfig.SoundSettings.EnableSounds := Reg.ReadBool('EnableSounds');
+        if Reg.ValueExists('SoundVolume') then
+          FConfig.SoundSettings.SoundVolume := Reg.ReadInteger('SoundVolume');
+        if Reg.ValueExists('BasicKeySound') then
+          FConfig.SoundSettings.BasicKeySound := Reg.ReadString('BasicKeySound');
+        if Reg.ValueExists('EnterKeySound') then
+          FConfig.SoundSettings.EnterKeySound := Reg.ReadString('EnterKeySound');
+        if Reg.ValueExists('BackspaceSound') then
+          FConfig.SoundSettings.BackspaceSound := Reg.ReadString('BackspaceSound');
       except
         // Use defaults on read errors
       end;
@@ -1011,6 +1065,13 @@ begin
         Reg.WriteBool('ShowOnDelete', FConfig.ShowOnDelete);
         Reg.WriteInteger('Intensity', FConfig.Intensity);
         Reg.WriteBool('RandomOffset', FConfig.RandomOffset);
+
+        // NEW: Save sound settings
+        Reg.WriteBool('EnableSounds', FConfig.SoundSettings.EnableSounds);
+        Reg.WriteInteger('SoundVolume', FConfig.SoundSettings.SoundVolume);
+        Reg.WriteString('BasicKeySound', FConfig.SoundSettings.BasicKeySound);
+        Reg.WriteString('EnterKeySound', FConfig.SoundSettings.EnterKeySound);
+        Reg.WriteString('BackspaceSound', FConfig.SoundSettings.BackspaceSound);
       except
         // Ignore write errors
       end;
