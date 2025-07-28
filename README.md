@@ -7,12 +7,13 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/Version-2.0-blueviolet?style=for-the-badge)  
-![Delphi](https://img.shields.io/badge/Delphi-XE2%2B-red?style=for-the-badge)  
-![Platform](https://img.shields.io/badge/Platform-Windows-green?style=for-the-badge)  
+![Version](https://img.shields.io/badge/Version-2.0-blueviolet?style=for-the-badge)
+![Delphi](https://img.shields.io/badge/Delphi-XE2%2B-red?style=for-the-badge)
+![Platform](https://img.shields.io/badge/Platform-Windows-green?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-Open%20Source-orange?style=for-the-badge)
 
 </div>
+
 
 ---
 
