@@ -3,7 +3,7 @@
 
 > **🎯 What it does:** Every keystroke now triggers stunning particle effects *and* plays custom WAV sound effects! Fire, lightning, ice crystals, plasma energy, and 17+ amazing animations — now with customizable typing audio for an even more immersive experience.
 
-> **⚠️ EARLY RELEASE WARNING:** This is an early release currently in testing phase. While presumed to be working, you may encounter bugs or unexpected behavior. Please report any issues via GitHub Issues. Use at your own discretion in production environments.
+> **⚠️ EARLY RELEASE WARNING:** This is an early release currently in testing phase. While presumed to be working, you may encounter bugs or unexpected behavior. Please report any issues via GitHub Issues. Use at your own discretion in production environments. In the Event that your IDE fails to load Don't PANIC, just delete the TypeFXStudio.bpl file from this location "C:\Users\Public\Documents\Embarcadero\Studio\23.0\Bpl\" and reload up your IDE ... when prompted it will error just press NO to not allow it to try and reload the plugin the next time you open the IDE. I dont suspect you guys will have this issue at all but just in case i wanted it at least put on here for the time being!
 
 <div align="center">
 
