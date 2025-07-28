@@ -3,6 +3,8 @@
 
 > **🎯 What it does:** Every keystroke triggers stunning particle effects! Fire, lightning, ice crystals, plasma energy, and 13 more amazing animations that make coding feel like magic.
 
+> **⚠️ EARLY RELEASE WARNING:** This is an early release currently in testing phase. While presumed to be working, you may encounter bugs or unexpected behavior. Please report any issues via GitHub Issues. Use at your own discretion in production environments.
+
 <div align="center">
 
 ![Version](https://img.shields.io/badge/Version-1.0-blue?style=for-the-badge)
