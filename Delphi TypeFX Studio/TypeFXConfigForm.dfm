@@ -127,7 +127,7 @@ object frmTypeFXConfig: TfrmTypeFXConfig
         ParentFont = False
       end
       object lblSpeedHint: TLabel
-        Left = 280
+        Left = 240
         Top = 20
         Width = 42
         Height = 13
@@ -160,7 +160,7 @@ object frmTypeFXConfig: TfrmTypeFXConfig
         ParentFont = False
       end
       object lblDurationHint: TLabel
-        Left = 280
+        Left = 240
         Top = 70
         Width = 42
         Height = 13
@@ -193,8 +193,8 @@ object frmTypeFXConfig: TfrmTypeFXConfig
         ParentFont = False
       end
       object lblIntensityHint: TLabel
-        Left = 280
-        Top = 120
+        Left = 240
+        Top = 116
         Width = 42
         Height = 13
         Caption = '(Normal)'
