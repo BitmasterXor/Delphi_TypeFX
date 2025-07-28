@@ -1183,7 +1183,7 @@ end;
 procedure TfrmTypeFXConfig.btnAboutClick(Sender: TObject);
 begin
   MessageDlg(
-    'TypeFX Studio v1.0' + #13#10 +
+    'TypeFX Studio v2.0' + #13#10 +
     'Visual Typing Effects for Delphi IDE' + #13#10 + #13#10 +
     'Brings magical visual effects to your coding experience!' + #13#10 +
     'Every keystroke becomes a visual celebration.' + #13#10 + #13#10 +
