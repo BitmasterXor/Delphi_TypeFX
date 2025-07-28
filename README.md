@@ -140,7 +140,7 @@
 
 <div align="center">
 
-**✨ Make Every Keystroke Magical!**
+**✨ Add a Little Magic To Your Code!**
 
 **Made By BitmasterXor With ❤️ for the Delphi Community**
 
