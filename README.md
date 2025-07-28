@@ -5,6 +5,8 @@
 
 > **⚠️ EARLY RELEASE WARNING:** This is an early release currently in testing phase. While presumed to be working, you may encounter bugs or unexpected behavior. Please report any issues via GitHub Issues. Use at your own discretion in production environments.
 
+> **🔊 COMING SOON:** Custom keystroke sounds! I'm planning to add customizable WAV file sounds for character presses, ENTER key, and BACKSPACE. You'll be able to browse and assign your own sound files to make typing even more satisfying!
+
 <div align="center">
 
 ![Version](https://img.shields.io/badge/Version-1.0-blue?style=for-the-badge)
