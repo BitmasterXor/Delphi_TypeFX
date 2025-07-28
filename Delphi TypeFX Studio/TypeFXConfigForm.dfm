@@ -242,46 +242,26 @@ object frmTypeFXConfig: TfrmTypeFXConfig
       Left = 0
       Top = 430
       Width = 584
-      Height = 200
+      Height = 131
       Caption = ' Sound Settings '
       TabOrder = 3
-      object lblSoundVolume: TLabel
-        Left = 12
-        Top = 50
-        Width = 41
-        Height = 13
-        Caption = 'Volume:'
-      end
-      object lblVolumeValue: TLabel
-        Left = 200
-        Top = 50
-        Width = 22
-        Height = 13
-        Caption = '75%'
-        Font.Charset = DEFAULT_CHARSET
-        Font.Color = clBlue
-        Font.Height = -11
-        Font.Name = 'Segoe UI'
-        Font.Style = [fsBold]
-        ParentFont = False
-      end
       object lblBasicKeySound: TLabel
         Left = 12
-        Top = 100
+        Top = 46
         Width = 86
         Height = 13
         Caption = 'Basic Key Sound:'
       end
       object lblEnterKeySound: TLabel
         Left = 12
-        Top = 130
+        Top = 76
         Width = 87
         Height = 13
         Caption = 'Enter Key Sound:'
       end
       object lblBackspaceSound: TLabel
         Left = 12
-        Top = 160
+        Top = 106
         Width = 93
         Height = 13
         Caption = 'Backspace Sound:'
@@ -295,88 +275,79 @@ object frmTypeFXConfig: TfrmTypeFXConfig
         TabOrder = 0
         OnClick = chkEnableSoundsClick
       end
-      object trkSoundVolume: TTrackBar
-        Left = 12
-        Top = 65
-        Width = 150
-        Height = 25
-        Position = 10
-        TabOrder = 1
-        OnChange = trkSoundVolumeChange
-      end
       object edtBasicKeySound: TEdit
         Left = 115
-        Top = 97
+        Top = 43
         Width = 300
         Height = 21
-        TabOrder = 2
+        TabOrder = 1
       end
       object btnBrowseBasicKey: TButton
         Left = 420
-        Top = 95
+        Top = 41
         Width = 60
         Height = 25
         Caption = 'Browse...'
-        TabOrder = 3
+        TabOrder = 2
         OnClick = btnBrowseBasicKeyClick
       end
       object btnTestBasicKey: TButton
         Left = 485
-        Top = 95
+        Top = 41
         Width = 40
         Height = 25
         Caption = 'Test'
-        TabOrder = 4
+        TabOrder = 3
         OnClick = btnTestBasicKeyClick
       end
       object edtEnterKeySound: TEdit
         Left = 115
-        Top = 127
+        Top = 73
         Width = 300
         Height = 21
-        TabOrder = 5
+        TabOrder = 4
       end
       object btnBrowseEnterKey: TButton
         Left = 420
-        Top = 125
+        Top = 71
         Width = 60
         Height = 25
         Caption = 'Browse...'
-        TabOrder = 6
+        TabOrder = 5
         OnClick = btnBrowseEnterKeyClick
       end
       object btnTestEnterKey: TButton
         Left = 485
-        Top = 125
+        Top = 71
         Width = 40
         Height = 25
         Caption = 'Test'
-        TabOrder = 7
+        TabOrder = 6
         OnClick = btnTestEnterKeyClick
       end
       object edtBackspaceSound: TEdit
         Left = 115
-        Top = 157
+        Top = 103
         Width = 300
         Height = 21
-        TabOrder = 8
+        TabOrder = 7
       end
       object btnBrowseBackspace: TButton
         Left = 420
-        Top = 155
+        Top = 101
         Width = 60
         Height = 25
         Caption = 'Browse...'
-        TabOrder = 9
+        TabOrder = 8
         OnClick = btnBrowseBackspaceClick
       end
       object btnTestBackspace: TButton
         Left = 485
-        Top = 155
+        Top = 101
         Width = 40
         Height = 25
         Caption = 'Test'
-        TabOrder = 10
+        TabOrder = 9
         OnClick = btnTestBackspaceClick
       end
     end
@@ -438,8 +409,8 @@ object frmTypeFXConfig: TfrmTypeFXConfig
       BevelOuter = bvNone
       TabOrder = 5
       object btnOK: TButton
-        Left = 280
-        Top = 10
+        Left = 335
+        Top = 2
         Width = 75
         Height = 30
         Caption = 'OK'
@@ -449,8 +420,8 @@ object frmTypeFXConfig: TfrmTypeFXConfig
         OnClick = btnOKClick
       end
       object btnCancel: TButton
-        Left = 365
-        Top = 10
+        Left = 416
+        Top = 2
         Width = 75
         Height = 30
         Cancel = True
@@ -460,8 +431,8 @@ object frmTypeFXConfig: TfrmTypeFXConfig
         OnClick = btnCancelClick
       end
       object btnReset: TButton
-        Left = 450
-        Top = 10
+        Left = 497
+        Top = 2
         Width = 75
         Height = 30
         Caption = 'Reset'
@@ -469,8 +440,8 @@ object frmTypeFXConfig: TfrmTypeFXConfig
         OnClick = btnResetClick
       end
       object btnAbout: TButton
-        Left = 12
-        Top = 10
+        Left = 0
+        Top = 2
         Width = 75
         Height = 30
         Caption = 'About'

@@ -43,9 +43,6 @@ type
     // NEW: Sound Settings Group
     grpSoundSettings: TGroupBox;
     chkEnableSounds: TCheckBox;
-    lblSoundVolume: TLabel;
-    trkSoundVolume: TTrackBar;
-    lblVolumeValue: TLabel;
 
     lblBasicKeySound: TLabel;
     edtBasicKeySound: TEdit;
@@ -169,7 +166,6 @@ begin
 
     // NEW: Load sound settings
     Form.chkEnableSounds.Checked := AConfig.SoundSettings.EnableSounds;
-    Form.trkSoundVolume.Position := AConfig.SoundSettings.SoundVolume;
     Form.edtBasicKeySound.Text := AConfig.SoundSettings.BasicKeySound;
     Form.edtEnterKeySound.Text := AConfig.SoundSettings.EnterKeySound;
     Form.edtBackspaceSound.Text := AConfig.SoundSettings.BackspaceSound;
@@ -229,11 +225,6 @@ begin
   trkIntensity.Max := 10;
   trkIntensity.Position := 5;
 
-  // NEW: Setup sound volume trackbar
-  trkSoundVolume.Min := 0;
-  trkSoundVolume.Max := 100;
-  trkSoundVolume.Position := 75;
-
   // NEW: Setup sound file dialog
   dlgOpenSound.Filter := 'WAV Audio Files (*.wav)|*.wav|All Files (*.*)|*.*';
   dlgOpenSound.DefaultExt := 'wav';
@@ -273,7 +264,6 @@ begin
 
   // NEW: Reset sound settings
   chkEnableSounds.Checked := FConfig.SoundSettings.EnableSounds;
-  trkSoundVolume.Position := FConfig.SoundSettings.SoundVolume;
   edtBasicKeySound.Text := FConfig.SoundSettings.BasicKeySound;
   edtEnterKeySound.Text := FConfig.SoundSettings.EnterKeySound;
   edtBackspaceSound.Text := FConfig.SoundSettings.BackspaceSound;
@@ -367,11 +357,6 @@ var
 begin
   SoundsEnabled := chkEnableSounds.Checked;
 
-  // Enable/disable sound controls based on master switch
-  lblSoundVolume.Enabled := SoundsEnabled;
-  trkSoundVolume.Enabled := SoundsEnabled;
-  lblVolumeValue.Enabled := SoundsEnabled;
-
   lblBasicKeySound.Enabled := SoundsEnabled;
   edtBasicKeySound.Enabled := SoundsEnabled;
   btnBrowseBasicKey.Enabled := SoundsEnabled;
@@ -386,9 +371,6 @@ begin
   edtBackspaceSound.Enabled := SoundsEnabled;
   btnBrowseBackspace.Enabled := SoundsEnabled;
   btnTestBackspace.Enabled := SoundsEnabled and (edtBackspaceSound.Text <> '');
-
-  // Update volume display
-  lblVolumeValue.Caption := Format('%d%%', [trkSoundVolume.Position]);
 end;
 
 procedure TfrmTypeFXConfig.UpdatePreview;
@@ -455,7 +437,7 @@ procedure TfrmTypeFXConfig.TestSoundFile(const FileName: string);
 begin
   if FileExists(FileName) then
   begin
-    TSoundManager.GetInstance.PlaySound(FileName, trkSoundVolume.Position);
+    TSoundManager.GetInstance.PlaySound(FileName, 100);
   end
   else
   begin
@@ -1180,7 +1162,6 @@ begin
 
   // NEW: Save sound settings
   FConfig.SoundSettings.EnableSounds := chkEnableSounds.Checked;
-  FConfig.SoundSettings.SoundVolume := trkSoundVolume.Position;
   FConfig.SoundSettings.BasicKeySound := edtBasicKeySound.Text;
   FConfig.SoundSettings.EnterKeySound := edtEnterKeySound.Text;
   FConfig.SoundSettings.BackspaceSound := edtBackspaceSound.Text;
