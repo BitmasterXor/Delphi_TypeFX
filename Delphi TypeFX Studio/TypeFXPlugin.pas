@@ -1,4 +1,4 @@
-unit TypeFXPlugin;
+﻿unit TypeFXPlugin;
 
 interface
 
@@ -21,6 +21,7 @@ type
   // Forward declarations
   TTypeFXWizard = class;
   TTransparentAnimationOverlay = class;
+  TNotificationOverlay = class;
 
   // Menu handler class
   TMenuHandler = class
@@ -72,6 +73,27 @@ type
     property AnimationType: TAnimationType read FAnimationType;
   end;
 
+  // Fade-away notification overlay
+  TNotificationOverlay = class(TCustomControl)
+  private
+    FMessage: string;
+    FFadeTimer: TTimer;
+    FAlpha: Integer;
+    FStartTime: Cardinal;
+    FDuration: Integer;
+
+  protected
+    procedure CreateParams(var Params: TCreateParams); override;
+    procedure Paint; override;
+    procedure OnFadeTimer(Sender: TObject);
+
+  public
+    constructor Create(AOwner: TComponent); override;
+    destructor Destroy; override;
+
+    procedure ShowNotification(const AMessage: string; ADuration: Integer = 3000);
+  end;
+
   // Keyboard hook for global keystroke detection
   TTypeFXKeyboardNotifier = class
   private
@@ -94,6 +116,7 @@ type
   private
     FAnimationOverlays: TObjectList<TTransparentAnimationOverlay>;
     FKeyboardNotifier: TTypeFXKeyboardNotifier;
+    FNotificationOverlay: TNotificationOverlay;
     FEnabled: Boolean;
     FConfig: TTypeFXConfig;
     FLastKeystrokeTime: Cardinal;
@@ -127,8 +150,9 @@ type
     procedure ToggleEnabled;
     procedure ShowConfigDialog;
     procedure CleanupOverlays;
+    procedure ShowNotification(const AMessage: string; ADuration: Integer = 3000);
 
-    // NEW: Sound-related methods
+    // Sound-related methods
     procedure PlayKeystrokeSound(Ch: Char);
 
     property Enabled: Boolean read FEnabled write FEnabled;
@@ -422,6 +446,227 @@ begin
   end;
 end;
 
+{ TNotificationOverlay }
+
+constructor TNotificationOverlay.Create(AOwner: TComponent);
+begin
+  inherited Create(AOwner);
+
+  // Set initial properties
+  Width := 300;
+  Height := 80;
+  FAlpha := 0;
+  FDuration := 3000;
+
+  // Create fade timer
+  FFadeTimer := TTimer.Create(Self);
+  FFadeTimer.Enabled := False;
+  FFadeTimer.OnTimer := OnFadeTimer;
+  FFadeTimer.Interval := 30; // ~33 FPS for smooth fading
+
+  // Set control style
+  ControlStyle := ControlStyle + [csOpaque];
+  Visible := False;
+end;
+
+destructor TNotificationOverlay.Destroy;
+begin
+  FFadeTimer.Free;
+  inherited Destroy;
+end;
+
+procedure TNotificationOverlay.CreateParams(var Params: TCreateParams);
+begin
+  inherited CreateParams(Params);
+
+  // Make it layered for alpha blending
+  Params.ExStyle := Params.ExStyle or WS_EX_LAYERED or WS_EX_TOPMOST;
+  Params.Style := Params.Style and not (WS_BORDER or WS_DLGFRAME);
+  Params.WindowClass.hbrBackground := 0;
+end;
+
+procedure TNotificationOverlay.Paint;
+var
+  Rect: TRect;
+  GlowRect: TRect;
+  TextRect: TRect;
+  i: Integer;
+  GlowAlpha: Integer;
+begin
+  if not Visible then Exit;
+
+  Rect := ClientRect;
+
+  // Draw multiple glow layers for a nice effect
+  Canvas.Pen.Style := psClear;
+
+  for i := 5 downto 1 do
+  begin
+    GlowAlpha := (FAlpha * i) div 10;
+    if GlowAlpha > 255 then GlowAlpha := 255;
+
+    GlowRect := Rect;
+    InflateRect(GlowRect, -i * 2, -i * 2);
+
+    Canvas.Brush.Color := RGB(0, 120, 215); // Nice blue color
+    Canvas.Brush.Style := bsSolid;
+    Canvas.RoundRect(GlowRect.Left, GlowRect.Top, GlowRect.Right, GlowRect.Bottom, 12, 12);
+  end;
+
+  // Draw main background
+  Canvas.Brush.Color := RGB(40, 40, 40); // Dark background
+  Canvas.Brush.Style := bsSolid;
+  InflateRect(Rect, -6, -6);
+  Canvas.RoundRect(Rect.Left, Rect.Top, Rect.Right, Rect.Bottom, 8, 8);
+
+  // Draw border
+  Canvas.Pen.Color := RGB(0, 120, 215);
+  Canvas.Pen.Width := 2;
+  Canvas.Pen.Style := psSolid;
+  Canvas.Brush.Style := bsClear;
+  Canvas.RoundRect(Rect.Left, Rect.Top, Rect.Right, Rect.Bottom, 8, 8);
+
+  // Draw checkmark icon FIRST
+  Canvas.Pen.Color := RGB(0, 200, 0);
+  Canvas.Pen.Width := 3;
+  Canvas.Pen.Style := psSolid;
+  Canvas.MoveTo(Rect.Left + 15, Rect.Top + Height div 2);
+  Canvas.LineTo(Rect.Left + 22, Rect.Top + Height div 2 + 5);
+  Canvas.LineTo(Rect.Left + 35, Rect.Top + Height div 2 - 8);
+
+  // Create text rectangle that starts AFTER the checkmark
+  TextRect := Rect;
+  TextRect.Left := TextRect.Left + 50; // Move text 50 pixels to the right of checkmark
+
+  // Draw text in the adjusted rectangle
+  Canvas.Font.Name := 'Segoe UI';
+  Canvas.Font.Size := 11;
+  Canvas.Font.Style := [fsBold];
+  Canvas.Font.Color := RGB(255, 255, 255);
+  Canvas.Brush.Style := bsClear;
+
+  DrawText(Canvas.Handle, PChar(FMessage), Length(FMessage), TextRect,
+    DT_LEFT or DT_VCENTER or DT_SINGLELINE); // Changed from DT_CENTER to DT_LEFT
+end;
+
+procedure TNotificationOverlay.OnFadeTimer(Sender: TObject);
+var
+  Elapsed: Cardinal;
+  Progress: Double;
+begin
+  Elapsed := GetTickCount - FStartTime;
+
+  if Elapsed < 500 then
+  begin
+    // Fade in phase (first 500ms)
+    Progress := Elapsed / 500.0;
+    FAlpha := Round(255 * Progress);
+  end
+  else if Elapsed < FDuration - 1000 then
+  begin
+    // Stay visible phase
+    FAlpha := 255;
+  end
+  else if Elapsed < FDuration then
+  begin
+    // Fade out phase (last 1000ms)
+    Progress := (FDuration - Elapsed) / 1000.0;
+    FAlpha := Round(255 * Progress);
+  end
+  else
+  begin
+    // Animation complete
+    FFadeTimer.Enabled := False;
+    Visible := False;
+    FAlpha := 0;
+    Exit;
+  end;
+
+  // Apply alpha to the window
+  if HandleAllocated then
+    SetLayeredWindowAttributes(Handle, 0, FAlpha, LWA_ALPHA);
+
+  Invalidate;
+end;
+
+procedure TNotificationOverlay.ShowNotification(const AMessage: string; ADuration: Integer = 3000);
+var
+  EditorForm: TCustomForm;
+  EditorControl: TWinControl;
+  MainForm: TCustomForm;
+  Canvas: TCanvas;
+  TextWidth, TextHeight: Integer;
+  CheckmarkWidth: Integer;
+  Padding: Integer;
+begin
+  FMessage := AMessage;
+  FDuration := ADuration;
+  FStartTime := GetTickCount;
+  FAlpha := 0;
+
+  // Calculate the required width based on text
+  Canvas := TCanvas.Create;
+  try
+    Canvas.Handle := GetDC(0); // Get screen DC for measurement
+    Canvas.Font.Name := 'Segoe UI';
+    Canvas.Font.Size := 11;
+    Canvas.Font.Style := [fsBold];
+
+    TextWidth := Canvas.TextWidth(FMessage);
+    TextHeight := Canvas.TextHeight(FMessage);
+
+    ReleaseDC(0, Canvas.Handle);
+  finally
+    Canvas.Free;
+  end;
+
+  // Calculate dimensions
+  CheckmarkWidth := 50; // Space reserved for checkmark
+  Padding := 20; // Padding on right side
+
+  // Set the width to fit: checkmark space + text width + padding
+  Width := CheckmarkWidth + TextWidth + Padding;
+  Height := Max(80, TextHeight + 40); // Minimum 80px height, or text height + padding
+
+  // Try to find the main IDE form for centering
+  try
+    MainForm := Application.MainForm;
+    if Assigned(MainForm) then
+    begin
+      Parent := MainForm;
+
+      // CENTER THE NOTIFICATION IN THE MAIN IDE WINDOW
+      Left := (MainForm.Width - Width) div 2;
+      Top := (MainForm.Height - Height) div 2;
+
+      // Make sure it's within bounds (safety check)
+      if Left < 10 then Left := 10;
+      if Top < 10 then Top := 10;
+      if Left + Width > MainForm.Width - 10 then
+        Left := MainForm.Width - Width - 10;
+      if Top + Height > MainForm.Height - 10 then
+        Top := MainForm.Height - Height - 10;
+    end
+    else
+    begin
+      // Fallback if no main form (shouldn't happen)
+      Parent := nil;
+      Left := (Screen.Width - Width) div 2;
+      Top := (Screen.Height - Height) div 2;
+    end;
+  except
+    // If anything fails, center on screen
+    Parent := nil;
+    Left := (Screen.Width - Width) div 2;
+    Top := (Screen.Height - Height) div 2;
+  end;
+
+  // Show and start animation
+  Visible := True;
+  BringToFront;
+  FFadeTimer.Enabled := True;
+end;
+
 { TTypeFXKeyboardNotifier }
 
 constructor TTypeFXKeyboardNotifier.Create(AWizard: TTypeFXWizard);
@@ -644,6 +889,9 @@ begin
   // Create keyboard notifier
   FKeyboardNotifier := TTypeFXKeyboardNotifier.Create(Self);
   FKeyboardNotifier.InstallHook;
+
+  // CREATE NOTIFICATION OVERLAY
+  FNotificationOverlay := TNotificationOverlay.Create(nil);
 end;
 
 destructor TTypeFXWizard.Destroy;
@@ -654,7 +902,10 @@ begin
   if Assigned(FKeyboardNotifier) then
     FKeyboardNotifier.Free;
 
-  FAnimationOverlays.Free;
+  // CLEAN UP NOTIFICATION OVERLAY
+  if Assigned(FNotificationOverlay) then
+    FNotificationOverlay.Free;
+    FAnimationOverlays.Free;
 
   inherited Destroy;
 end;
@@ -926,7 +1177,7 @@ begin
   ShowConfigDialog;
 end;
 
-// NEW: Sound playback method
+// Sound playback method
 procedure TTypeFXWizard.PlayKeystrokeSound(Ch: Char);
 begin
   if not FConfig.SoundSettings.EnableSounds then
@@ -954,7 +1205,7 @@ begin
   CurrentTime := GetTickCount;
   Inc(FKeystrokeCount);
 
-  // NEW: Play sound for keystroke
+  // Play sound for keystroke
   PlayKeystrokeSound(Ch);
 
   // Implement frequency control
@@ -1121,11 +1372,11 @@ begin
   if not FEnabled then
     CleanupOverlays;
 
-  // Show status message
+  // Show status message using new notification overlay
   if FEnabled then
-    ShowMessage('TypeFX Studio Professional Effects Enabled!')
+    ShowNotification('TypeFX Studio Effects Enabled!', 2000)
   else
-    ShowMessage('TypeFX Studio Effects Disabled.');
+    ShowNotification('TypeFX Studio Effects Disabled', 2000);
 end;
 
 procedure TTypeFXWizard.ShowConfigDialog;
@@ -1133,8 +1384,14 @@ begin
   if TfrmTypeFXConfig.ShowConfigDialog(FConfig) then
   begin
     SaveSettings;
-    ShowMessage('TypeFX Studio Professional Settings Saved!');
+    ShowNotification('TypeFX Studio Settings Saved Successfully!', 2500);
   end;
+end;
+
+procedure TTypeFXWizard.ShowNotification(const AMessage: string; ADuration: Integer = 3000);
+begin
+  if Assigned(FNotificationOverlay) then
+    FNotificationOverlay.ShowNotification(AMessage, ADuration);
 end;
 
 procedure TTypeFXWizard.LoadSettings;
@@ -1164,7 +1421,7 @@ begin
         if Reg.ValueExists('RandomOffset') then
           FConfig.RandomOffset := Reg.ReadBool('RandomOffset');
 
-        // NEW: Load sound settings
+        // Load sound settings
         if Reg.ValueExists('EnableSounds') then
           FConfig.SoundSettings.EnableSounds := Reg.ReadBool('EnableSounds');
         if Reg.ValueExists('SoundVolume') then
@@ -1203,7 +1460,7 @@ begin
         Reg.WriteInteger('Intensity', FConfig.Intensity);
         Reg.WriteBool('RandomOffset', FConfig.RandomOffset);
 
-        // NEW: Save sound settings
+        // Save sound settings
         Reg.WriteBool('EnableSounds', FConfig.SoundSettings.EnableSounds);
         Reg.WriteInteger('SoundVolume', FConfig.SoundSettings.SoundVolume);
         Reg.WriteString('BasicKeySound', FConfig.SoundSettings.BasicKeySound);

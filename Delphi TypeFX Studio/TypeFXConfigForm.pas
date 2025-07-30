@@ -144,6 +144,9 @@ implementation
 
 {$R *.dfm}
 
+uses
+TypeFXPlugin;
+
 { TfrmTypeFXConfig }
 
 class function TfrmTypeFXConfig.ShowConfigDialog(var AConfig: TTypeFXConfig): Boolean;
@@ -1153,7 +1156,6 @@ begin
     FConfig.EffectStyle := TEffectStyle(cmbEffectStyle.ItemIndex);
   if cmbTriggerFrequency.ItemIndex >= 0 then
     FConfig.TriggerFrequency := TTriggerFrequency(cmbTriggerFrequency.ItemIndex);
-
   FConfig.AnimationSpeed := trkAnimationSpeed.Position;
   FConfig.Duration := trkDuration.Position;
   FConfig.Intensity := trkIntensity.Position;
@@ -1166,7 +1168,10 @@ begin
   FConfig.SoundSettings.EnterKeySound := edtEnterKeySound.Text;
   FConfig.SoundSettings.BackspaceSound := edtBackspaceSound.Text;
 
-  ModalResult := mrOK;
+  ModalResult := mrOK;  // 👈 ADD THIS LINE - IMPORTANT!
+
+  if Assigned(TypeFXWizard) then
+    TypeFXWizard.ShowNotification('TypeFX Studio Settings Saved Successfully!', 2500);
 end;
 
 procedure TfrmTypeFXConfig.btnCancelClick(Sender: TObject);
