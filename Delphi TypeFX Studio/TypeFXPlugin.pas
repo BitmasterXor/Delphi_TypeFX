@@ -1,4 +1,4 @@
-﻿unit TypeFXPlugin;
+unit TypeFXPlugin;
 
 interface
 
@@ -265,8 +265,10 @@ begin
 end;
 
 class procedure TMenuHandler.AddMenuItem(NTAServices: INTAServices; aCaption: String; aAction: TProc; aShortcut: String = '');
+var
+  handler: TMenuHandler;
 begin
-  var handler := TMenuHandler.Create(aCaption, aAction, aShortcut);
+  handler := TMenuHandler.Create(aCaption, aAction, aShortcut);
   MenuHandlers.Add(handler);
   NTAServices.AddActionMenu('ToolsMenu', nil, handler.Item, False, True);
 end;
