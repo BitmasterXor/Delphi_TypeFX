@@ -472,7 +472,7 @@ begin
     end
     else if IsKeyDown then
     begin
-      // Handle special keys
+      // Handle special keys - EXPANDED VERSION
       case wParam of
         VK_RETURN: // Enter key
         begin
@@ -482,6 +482,143 @@ begin
         VK_BACK: // Backspace key
         begin
           Ch := #8;
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        VK_TAB: // Tab key
+        begin
+          Ch := #9;
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        VK_ESCAPE: // Escape key
+        begin
+          Ch := #27;
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        VK_DELETE: // Delete key
+        begin
+          Ch := #127;
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        VK_INSERT: // Insert key
+        begin
+          Ch := #45; // Use a unique character for Insert
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        VK_HOME: // Home key
+        begin
+          Ch := #36; // Use a unique character for Home
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        VK_END: // End key
+        begin
+          Ch := #35; // Use a unique character for End
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        VK_PRIOR: // Page Up
+        begin
+          Ch := #33; // Use a unique character for Page Up
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        VK_NEXT: // Page Down
+        begin
+          Ch := #34; // Use a unique character for Page Down
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        VK_UP, VK_DOWN, VK_LEFT, VK_RIGHT: // Arrow keys
+        begin
+          Ch := Chr(wParam); // Use the virtual key code as character
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        VK_F1..VK_F12: // Function keys F1-F12
+        begin
+          Ch := Chr(wParam); // Use the virtual key code as character
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        // SPECIAL SYMBOLS that might not be in ASCII 32-126 range
+        VK_OEM_MINUS: // - key
+        begin
+          Ch := '-';
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        VK_OEM_PLUS: // = key (+ when shifted)
+        begin
+          Ch := '=';
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        VK_OEM_1: // ; key (: when shifted)
+        begin
+          Ch := ';';
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        VK_OEM_2: // / key (? when shifted)
+        begin
+          Ch := '/';
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        VK_OEM_3: // ` key (~ when shifted)
+        begin
+          Ch := '`';
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        VK_OEM_4: // [ key ({ when shifted)
+        begin
+          Ch := '[';
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        VK_OEM_5: // \ key (| when shifted)
+        begin
+          Ch := '\';
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        VK_OEM_6: // ] key (} when shifted)
+        begin
+          Ch := ']';
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        VK_OEM_7: // ' key (" when shifted)
+        begin
+          Ch := '''';
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        VK_OEM_COMMA: // , key (< when shifted)
+        begin
+          Ch := ',';
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        VK_OEM_PERIOD: // . key (> when shifted)
+        begin
+          Ch := '.';
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        // NUMPAD KEYS
+        VK_NUMPAD0..VK_NUMPAD9:
+        begin
+          Ch := Chr(Ord('0') + (wParam - VK_NUMPAD0));
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        VK_MULTIPLY: // Numpad *
+        begin
+          Ch := '*';
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        VK_ADD: // Numpad +
+        begin
+          Ch := '+';
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        VK_SUBTRACT: // Numpad -
+        begin
+          Ch := '-';
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        VK_DECIMAL: // Numpad .
+        begin
+          Ch := '.';
+          FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
+        end;
+        VK_DIVIDE: // Numpad /
+        begin
+          Ch := '/';
           FInstance.FWizard.OnKeystroke(Ch, IsKeyDown);
         end;
       end;
