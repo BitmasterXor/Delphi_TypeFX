@@ -14,6 +14,19 @@
 
 </div>
 
+---
+
+## 🎬 Video Tutorial
+
+<div align="center">
+
+### 📺 **Watch the Complete Installation & Demo**
+
+[![TypeFX Studio Tutorial](http://img.youtube.com/vi/wGjtdy03ke4/0.jpg)](https://youtu.be/wGjtdy03ke4)
+
+**👆 Click to watch: Transform Your Delphi IDE With INSANE Particle Effects & Sound!**
+
+</div>
 
 ---
 
